@@ -42,6 +42,18 @@ $(function(){
             APIData.sync.server = new Date(data);
             APIData.sync.offset = APIData.sync.server.getTime() - APIData.sync.midpoint.getTime();
             console.log(APIData.sync);
+
+            $('#request_list').html('');
+            for(var i in APIData.lastRequests){
+                var req = APIData.lastRequests[i];
+                req.start = adjustTime(req.start);
+                if(req.end){
+                    req.end = adjustTime(req.end);
+                }
+                APIData.lastRequests[i] = req;
+                $('#request_list').prepend(getTemplate('request_template',{req: req, ID: i}));
+            }
+
             return;
         }
         //console.log('Compression',event.data.length/decompressedData.length*100,'%',event.data.length);
@@ -87,10 +99,17 @@ $(function(){
 
 function parseRequestTimes(req) {
     req.start = new Date(req.start);
+    if(APIData.sync.offset)req.start = adjustTime(req.start);
     if(req.end){
         req.end = new Date(req.end);
+        if(APIData.sync.offset)req.end = adjustTime(req.end);
     }
     return req;
+}
+
+function adjustTime(time){
+    time.setTime(time.getTime() - APIData.sync.offset);
+    return time;
 }
 
 function getTemplate(template, data){
