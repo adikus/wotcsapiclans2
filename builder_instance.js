@@ -28,6 +28,6 @@ module.exports = cls.Class.extend({
                 console.error('Error running query', err, query);
             }
             callback(err, results);
-        })
+        });
     }
 });
