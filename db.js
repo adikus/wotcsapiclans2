@@ -11,7 +11,7 @@ module.exports = cls.Class.extend({
     },
 
     connect: function() {
-        var conString = process.env.API_POSTGRE;
+        var conString = process.env.API_POSTGRE || process.env.HEROKU_POSTGRESQL_MAROON_URL;
         var self = this;
 
         pg.connect(conString, function(err, client, done) {
