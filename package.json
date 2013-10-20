@@ -12,6 +12,7 @@
     "ws": "*",
     "underscore": "*",
     "pg": "*",
-    "squel": "*"
+    "squel": "*",
+    "mongodb": "*"
   }
 }
