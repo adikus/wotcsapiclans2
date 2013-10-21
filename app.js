@@ -32,6 +32,7 @@ module.exports = cls.Class.extend({
         var key = req.query.key || 'EU1';
         this.getWorkerData(key, function(data) {
             data.key = key;
+            data.title = 'Clan loader';
             res.render('index', data);
         });
     },
