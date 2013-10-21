@@ -1,9 +1,11 @@
 var cls = require("./lib/class");
 var _ = require("underscore");
+var ClanLoader = require('./clan_loader');
 
 module.exports = cls.Class.extend({
-    init: function(){
-        this.workers = [];
+    init: function(isMaster){
+        this.workers = {};
+        this.isMaster = isMaster;
     },
 
     dependencies: function(dependencies){
@@ -13,7 +15,9 @@ module.exports = cls.Class.extend({
         });
     },
 
-    addWorker: function(worker) {
+    addWorker: function(key) {
+        var worker = new ClanLoader(key);
+        this.worker_key = key;
         worker.dependencies({
             app: this
         });
@@ -21,23 +25,39 @@ module.exports = cls.Class.extend({
         worker.onReady(function(){
             worker.start();
         });
-        this.workers.push(worker);
+        this.workers[key] = worker;
     },
 
     homepage: function(req, res){
-        var locals = this.workers[0].getCurrentState();
-        res.render('index', locals);
-    },
-
-    onWorkerUpdate: function(callback) {
-        this.workers[0].onUpdate(function(data){
-            callback(data);
+        var key = req.query.key || 'EU1';
+        this.getWorkerData(key, function(data) {
+            data.key = key;
+            res.render('index', data);
         });
     },
 
-    getWorkerData: function (){
-        var ret = this.workers[0].getCurrentState();
-        ret.lastRequests = this.workers[0].lastRequests;
-        return ret;
+    onWorkerUpdate: function(callback) {
+        var self = this;
+
+        if(this.worker_key){
+            this.workers[this.worker_key].onUpdate(function(data){
+                callback(self.worker_key, data);
+            });
+        }
+        if(this.isMaster){
+            this.messenger.onWorkerUpdate(function(key, data){
+                callback(key, data);
+            });
+        }
+    },
+
+    getWorkerData: function (key, callback){
+        if(this.workers[key]){
+            var ret = this.workers[key].getCurrentState();
+            ret.lastRequests = this.workers[key].lastRequests;
+            callback(ret);
+        }else{
+            this.messenger.getWorkerData(key, callback);
+        }
     }
 });

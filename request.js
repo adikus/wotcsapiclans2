@@ -21,7 +21,7 @@ module.exports = Request = cls.Class.extend({
 
         this.request = http.request(options, function(res) {
             var error = res.statusCode != 200;
-            if(error /*&& res.statusCode != 503*/){
+            if(error && res.statusCode != 503){
                 console.log(res.statusCode, path);
             }
 
@@ -38,14 +38,14 @@ module.exports = Request = cls.Class.extend({
                     }
                     self.success_callback(self.data);
                 }else {
-                    self.error_callback();
+                    self.error_callback(res.statusCode);
                 }
             });
         });
 
         this.request.on('error', function(e) {
             console.log('Problem with request: ' + e.message);
-            self.error_callback();
+            self.error_callback(e.message);
         });
 
         this.request.end();

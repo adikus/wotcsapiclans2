@@ -5906,3 +5906,8 @@ td.visible-print {
     display: none !important;
   }
 }
+.list-group-item-danger {
+  color: #b94a48;
+  background-color: #f2dede;
+  border-color: #eed3d7;
+}

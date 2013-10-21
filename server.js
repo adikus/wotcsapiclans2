@@ -5,6 +5,7 @@ var WebSocketServer = require('ws').Server;
 var cls = require("./lib/class");
 var _ = require("underscore");
 var LZString = require('./lib/lz-string-1.3.3');
+var MC = require("./message_codes");
 
 module.exports = cls.Class.extend({
     init: function(){
@@ -18,18 +19,6 @@ module.exports = cls.Class.extend({
         this.clientID = 0;
         this.clients = {};
         this.listeningWorkers = false;
-
-        this.ClientMessages = {
-            SYNC: 0
-        };
-        this.ServerMessages = {
-            SYNC: 0,
-            ADD_REQ: 1,
-            FINISH_REQ: 2,
-            PAST_REQS: 3,
-            CYCLE_DATA: 4,
-            CYCLE_START: 5
-        };
     },
 
     configureExpress: function(app){
@@ -77,16 +66,16 @@ module.exports = cls.Class.extend({
         console.log('Websocket server created');
         this.wss.on('connection', function(ws) {
             var ID = self.clientID++;
-            self.clients[ID] = ws;
             console.log('Websocket connection open');
             if(!self.listeningWorkers){
                 self.listenForWorkerUpdate();
             }
-            self.sendWorkerData(ws);
             ws.on('message', function(data) {
                 var msg = JSON.parse(data);
-                if(msg[0] == self.ClientMessages.SYNC){
-                    ws.send(self.prepareMessage([self.ServerMessages.SYNC,new Date()]));
+                if(msg[0] == MC.ws.client.SYNC){
+                    self.clients[ID] = {ws: ws, key: msg[1]};
+                    self.sendWorkerData(self.clients[ID]);
+                    ws.send(self.prepareMessage([MC.ws.server.SYNC,new Date()]));
                 }
             });
             ws.on('close', function() {
@@ -101,15 +90,41 @@ module.exports = cls.Class.extend({
     },
 
     sendWorkerData: function(client) {
-        var preparedData = this.prepareMessage([this.ServerMessages.PAST_REQS,this.app.getWorkerData()]);
+        var self = this;
+
         if(client){
-            client.send(preparedData);
+            this.app.getWorkerData(client.key,function(data){
+                var preparedData = self.prepareMessage([MC.ws.server.PAST_REQS, data]);
+                client.ws.send(preparedData);
+            });
         }else{
-            console.log('Broadcasting worker data');
-            _.each(this.clients, function(ws){
-                ws.send(preparedData);
+            var listOfKeys = self.getListOfKeys();
+            _.each(listOfKeys, function(key) {
+                self.app.getWorkerData(key,function(data){
+                    var preparedData = self.prepareMessage([MC.ws.server.PAST_REQS, data]);
+                    console.log('Broadcasting worker data',key);
+                    self.broadcast(key, preparedData);
+                });
             });
         }
+    },
+
+    broadcast: function(key, data) {
+        _.each(this.clients, function(client){
+            if(client.key == key){
+                client.ws.send(data);
+            }
+        });
+    },
+
+    getListOfKeys: function() {
+        var listOfKeys = [];
+        _.each(this.clients, function(c) {
+            if(!_.contains(listOfKeys, c.key)){
+                listOfKeys.push(c.key);
+            }
+        });
+        return listOfKeys;
     },
 
     prepareMessage: function(msg){
@@ -119,12 +134,10 @@ module.exports = cls.Class.extend({
     listenForWorkerUpdate: function(){
         var self = this;
         this.listeningWorkers = true;
-        this.app.onWorkerUpdate(function(data) {
+        this.app.onWorkerUpdate(function(key, data) {
             var action = data.actionData.code;
             var preparedData = self.prepareMessage([action,data]);
-            _.each(self.clients, function(ws){
-                ws.send(preparedData);
-            });
+            self.broadcast(key, preparedData);
         });
     },
 

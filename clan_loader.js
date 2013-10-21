@@ -1,11 +1,14 @@
 var Worker = require("./worker_base");
 var _ = require("underscore");
 var Request = require("./request");
+var MC = require("./message_codes");
+var squel = require("squel");
+var shared = require("./shared");
 
 module.exports = Worker.extend({
     init: function(region){
         this.config = {
-            maxActiveRequests: 4,
+            maxActiveRequests: 2,
             clansInRequest: 50,
             waitMultiplier: 1.2,
             region: region
@@ -23,18 +26,44 @@ module.exports = Worker.extend({
         this.lastRequests = [];
         this.clansBeingLoaded = {};
 
+        this.priorityRequests = [];
         this.interval = null;
         this.stopping = false;
         this.waitTime = 2000;
         this.requestID = 0;
-        this.badIDs = [];
+        this.badIDs = require('./bad_ids');
 
-        if(this.config.region == 'EU')this.clanIDRange = [500000000,1000000000];
+        if(this.config.region == 'EU1'){
+            this.clanIDRange = [500000000,500016375];
+        }
+        if(this.config.region == 'EU2'){
+            this.clanIDRange = [500016375,1000000000];
+        }
+        if(this.config.region == 'NA'){
+            this.config.maxActiveRequests = 4;
+            this.config.clansInRequest = 25;
+            this.clanIDRange = [1000000000,2000000000];
+        }
+        if(this.config.region == 'RU-SEA-KR'){
+            this.config.maxActiveRequests = 4;
+            this.config.clansInRequest = 25;
+            this.clanIDRange = [[0,500000000],[2000000000,2500000000],[3000000000,4000000000]];
+        }
     },
 
     loadData: function() {
         var self = this;
-        this.app.db.builder.select().from("clans").where("id > ? AND id < ?",this.clanIDRange[0],this.clanIDRange[1]).exec(function(err, results){
+        var query
+        if(_.isArray(this.clanIDRange[0])){
+            query = this.app.db.builder.select().from("clans");
+            query.where(
+                "(id >= ? AND id < ?) OR (id >= ? AND id < ?) OR (id >= ? AND id < ?)",
+                this.clanIDRange[0][0],this.clanIDRange[0][1],this.clanIDRange[1][0],this.clanIDRange[1][1],this.clanIDRange[2][0],this.clanIDRange[2][1]
+            ).order('id');
+        }else{
+            query = this.app.db.builder.select().from("clans").where("id >= ? AND id < ?",this.clanIDRange[0],this.clanIDRange[1]);
+        }
+        query.exec(function(err, results){
             self.clans = results.rows;
             self.cycleData.totalClans = results.rowCount;
             self.ready = true;
@@ -43,7 +72,7 @@ module.exports = Worker.extend({
             }
             if(self.update_callback){
                 var ret = self.getCurrentState();
-                ret.actionData = {code: self.app.server.ServerMessages.CYCLE_START};
+                ret.actionData = {code: MC.ws.server.CYCLE_START};
                 self.update_callback(ret);
             }
         });
@@ -160,11 +189,21 @@ module.exports = Worker.extend({
     step: function() {
         var sinceLastRequest = (new Date()).getTime() - this.getLastRequestAt().getTime();
 
-        if(this.cycleData.activeRequests < this.config.maxActiveRequests && sinceLastRequest > this.waitTime){
+        if(this.cycleData.activeRequests < this.config.maxActiveRequests && sinceLastRequest > Math.max(this.waitTime,1000)){
+            if(this.priorityRequests.length > 0){
+                this.priorityRequests.pop()();
+                return;
+            }
             var clanList = [];
             for(var i = 0;i<this.config.clansInRequest;i++){
                 if(this.clans.length > 0){
-                    clanList.push(this.clans.pop());
+                    var tempClan = this.clans.pop();
+                    if(!_.contains(this.badIDs, parseInt(tempClan.id, 10))
+                        && (clanList.length == 0 || shared.getRegion(tempClan.id) == shared.getRegion(clanList[0].id))){
+                        clanList.push(tempClan);
+                    }
+                }else{
+                    break;
                 }
             }
             if(clanList.length > 0){
@@ -206,10 +245,13 @@ module.exports = Worker.extend({
                 tag: clan.tag
             };
         });
+        if(this.config.region == 'RU-SEA-KR'){
+            this.lastRequests[ID].region = shared.TranslatedRegion[shared.getRegion(clans[0].id)];
+        }
 
         if(this.update_callback){
             var ret = this.getCurrentState();
-            ret.actionData = {code: this.app.server.ServerMessages.ADD_REQ, id: ID, req: this.lastRequests[ID]};
+            ret.actionData = {code: MC.ws.server.ADD_REQ, id: ID, req: this.lastRequests[ID]};
             this.update_callback(ret);
         }
     },
@@ -219,6 +261,7 @@ module.exports = Worker.extend({
         this.lastRequests[ID].duration = this.lastRequests[ID].end.getTime() - this.lastRequests[ID].start.getTime();
         this.cycleData.finishedClans += count;
         this.lastRequests[ID].count = count;
+        this.lastRequests[ID].error = error;
         this.cycleData.finishedRequests += 1;
         if(error)this.cycleData.errorRequests += 1;
         this.cycleData.activeRequests--;
@@ -231,7 +274,7 @@ module.exports = Worker.extend({
 
         if(this.update_callback){
             var ret = this.getCurrentState();
-            ret.actionData = {code: this.app.server.ServerMessages.FINISH_REQ, id: ID, error: error, req: this.lastRequests[ID]};
+            ret.actionData = {code: MC.ws.server.FINISH_REQ, id: ID, error: error, req: this.lastRequests[ID]};
             this.update_callback(ret);
         }
     },
@@ -239,19 +282,34 @@ module.exports = Worker.extend({
     parseAndCheckData: function(data, IDs){
         var parsed = JSON.parse(data);
         if(parsed.status == 'ok'){
-            return true;
+            var allOK = true;
+            _.each(IDs, function(ID){
+                if(parsed.data[ID] === undefined){
+                    allOK = false;
+                }
+            });
+            if(!allOK){
+                console.log(IDs);
+            }
+            return allOK;
         }else{
-            console.log('API Error.', parsed.status, IDs);
             return false;
         }
     },
 
     splitRequestToFindBadID: function(clans){
+        var self = this;
+
         if(clans.length > 1){
             var breakpoint = Math.floor(clans.length/2);
-            this.loadClans(clans.slice(0, breakpoint));
-            this.loadClans(clans.slice(breakpoint));
+            this.priorityRequests.unshift(function(){
+                self.loadClans(clans.slice(0, breakpoint), self.requestID++);
+            });
+            this.priorityRequests.unshift(function(){
+                self.loadClans(clans.slice(breakpoint), self.requestID++);
+            });
         }else{
+            console.log('Bad ID', clans[0].id);
             this.badIDs.push(clans[0].id);
         }
     },
@@ -267,13 +325,14 @@ module.exports = Worker.extend({
             if(self.parseAndCheckData(data, IDs)){
                 self.finishRequest(ID, clans.length, false, clans);
             }else{
-                self.finishRequest(ID, 0, true, clans);
+                self.finishRequest(ID, 0, 'API Error', clans);
+                //console.log('API Error.'/*, parsed.status, IDs*/);
                 self.splitRequestToFindBadID(clans);
             }
         });
 
-        req.onError(function(){
-            self.finishRequest(ID, 0, true, clans);
+        req.onError(function(error){
+            self.finishRequest(ID, 0, error, clans);
             _.each(clans,function(clan){self.clans.unshift(clan);});
         });
     },

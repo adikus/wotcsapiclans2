@@ -1,11 +1,13 @@
 block request_template
-    .list-group-item(class=req.duration?'finished':'active',id='req_'+ID)
+    .list-group-item(class=(req.duration?'finished':'active')+(req.error?' list-group-item-danger':''),id='req_'+ID)
         if req.duration
             .badge= req.duration + ' ms'
         else
             .badge= (new Date()).getTime() - req.start.getTime() + ' ms'
         b= '#'+ID
-        i= ' - ' + req.count + ' clans'
+        if req.region
+            = ' (' + req.region + ')'
+        i= req.error?(' - ' + req.error):(' - ' + req.count + ' clans')
         -minutes = req.start.getMinutes().toString();
         -seconds = req.start.getSeconds().toString();
         -minutesString = '00'.slice(0,minutes.length-2)+minutes;
