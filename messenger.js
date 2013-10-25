@@ -10,6 +10,7 @@ module.exports = cls.Class.extend({
             this.setupMaster();
         }
         this.callbacks = {};
+        this.workersReady = 0;
     },
 
     setupMaster: function() {
@@ -56,6 +57,10 @@ module.exports = cls.Class.extend({
 
         if(action == MC.cluster.client.GET_TASK){
             console.log('Worker '+key+' online, sending task');
+            this.workersReady++;
+            if(this.workersReady == _.size(this.workers) && this.ready_callback){
+                this.ready_callback();
+            }
             this.workers[key].send([0,key]);
         }
         if(action == MC.cluster.client.WORKER_UPDATE){
@@ -112,6 +117,10 @@ module.exports = cls.Class.extend({
 
     onDependencies: function(callback) {
         this.dependencies_callback = callback;
+    },
+
+    onWorkersReady: function(callback){
+        this.ready_callback = callback;
     },
 
     onWorkerUpdate: function(callback){

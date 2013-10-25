@@ -13,24 +13,29 @@ function main(){
         if (cluster.isMaster){
             app = new App(true);
             messenger = new Messenger(true);
-            var server = new Server();
-            server.dependencies({
+
+            app.dependencies({
+                db: db,
+                messenger: messenger
+            });
+            messenger.dependencies({
                 app: app
             });
-            server.onReady(function(){
-                app.dependencies({
-                    db: db,
-                    server: server,
-                    messenger: messenger
-                });
-                messenger.dependencies({
+            app.addWorker('NA');
+
+            messenger.setupWorker(cluster.fork(), 'EU1');
+            messenger.setupWorker(cluster.fork(), 'EU2');
+            messenger.setupWorker(cluster.fork(), 'RU-SEA-KR');
+            messenger.onWorkersReady(function(){
+                var server = new Server();
+                server.dependencies({
                     app: app
                 });
-                app.addWorker('NA');
-
-                messenger.setupWorker(cluster.fork(), 'EU1');
-                messenger.setupWorker(cluster.fork(), 'EU2');
-                messenger.setupWorker(cluster.fork(), 'RU-SEA-KR');
+                server.onReady(function(){
+                    app.dependencies({
+                        server: server
+                    });
+                });
             });
         }else{
             app = new App(false);
