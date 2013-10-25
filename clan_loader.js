@@ -134,27 +134,29 @@ module.exports = Worker.extend({
         this.ready = false;
     },
 
-    getRangeOfLast: function() {
-        if(this.requestID < 2)return [0,0];
-        var top = this.requestID-2 >= 0 ? this.requestID-2 : 0;
-        var bottom = this.requestID-12 >= 0 ? this.requestID-12 : 0;
-        while(!this.lastRequests[top].end && top > 0){
-            top--;
+    get10LastRequests: function() {
+        var i = this.requestID-1;
+        while( i > 0 && !this.lastRequests[i].end){
+            i--;
         }
-        return [bottom, top];
+        var ret = [];
+        while( i > 0 && this.lastRequests[i] && ret.length < 10){
+            if(this.lastRequests[i].duration){
+                ret.unshift(this.lastRequests[i]);
+            }
+            i--;
+        }
+        return ret;
     },
 
     getCurrentSpeed: function() {
-        var range = this.getRangeOfLast();
-        if(range[1] == 0)return 0;
-        var topReq = this.lastRequests[range[1]];
-        var bottomReq = this.lastRequests[range[0]];
-        var duration = topReq.end.getTime() - bottomReq.start.getTime();
-        var sum = 0;
-        for(var i = range[0]; i <= range[1]; i++){
-            sum += this.lastRequests[i].count;
+        var last10 = this.get10LastRequests();
+        if(last10.length == 0){
+            return 0;
         }
-        return Math.round(sum / duration * 1000 * 100) / 100;
+        var totalCount = _.reduce(last10, function(memo, req){ return memo + req.count; }, 0);
+        var duration = _.last(last10).end.getTime() - _.first(last10).start.getTime();
+        return Math.round(totalCount / duration * 1000 * 100) / 100;
     },
 
     getAverageSpeed: function() {
@@ -164,13 +166,12 @@ module.exports = Worker.extend({
     },
 
     getCurrentDuration: function() {
-        if(this.cycleData.finishedRequests == 0)return 0;
-        var range = this.getRangeOfLast();
-        var sum = 0;
-        for(var i = range[0]; i <= range[1]; i++){
-            sum += this.lastRequests[i].duration;
+        var last10 = this.get10LastRequests();
+        if(last10.length == 0){
+            return 0;
         }
-        return Math.round(sum / (range[1]-range[0]+1) * 100) / 100;
+        var totalDuration = _.reduce(last10, function(memo, req){ return memo + req.duration; }, 0);
+        return Math.round(totalDuration / last10.length * 100) / 100;
     },
 
     getCompletion: function() {
