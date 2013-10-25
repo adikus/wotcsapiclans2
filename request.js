@@ -3,13 +3,16 @@ var cls = require("./lib/class"),
     http = require("http");
 
 module.exports = Request = cls.Class.extend({
-    init: function(method,id){
+    init: function(method,id,fields){
         this.data = '';
 
         id = id.toString();
         var host = this.getHost(id.split(',')[0]);
         var api_id = this.getApiId(id.split(',')[0]);
         var path = '/2.0/'+method+'/info/?application_id='+api_id+'&clan_id='+id;
+        if(fields){
+            path += '&fields='+fields;
+        }
         var	self = this,
             options = {
                 host: host,

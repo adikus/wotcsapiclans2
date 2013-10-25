@@ -319,7 +319,7 @@ module.exports = Worker.extend({
         var IDs = _.map(clans, function(clan){return clan.id});
 
         this.addRequest(ID, clans);
-        var req = new Request('clan',IDs);
+        var req = new Request('clan',IDs,'description_html,abbreviation,motto,name,members.account_name');
 
         req.onSuccess(function(data) {
             if(self.parseAndCheckData(data, IDs)){
