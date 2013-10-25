@@ -93,10 +93,19 @@ module.exports = cls.Class.extend({
         var self = this;
 
         if(client){
-            this.app.getWorkerData(client.key,function(data){
-                var preparedData = self.prepareMessage([MC.ws.server.PAST_REQS, data]);
-                client.ws.send(preparedData);
-            });
+            if(client.key == 'all'){
+                this.app.getAllWorkersData(function(data){
+                    _.each(data, function(threadData) {
+                        var preparedData = self.prepareMessage([MC.ws.server.PAST_REQS, threadData]);
+                        client.ws.send(preparedData);
+                    });
+                });
+            }else{
+                this.app.getWorkerData(client.key,function(data){
+                    var preparedData = self.prepareMessage([MC.ws.server.PAST_REQS, data]);
+                    client.ws.send(preparedData);
+                });
+            }
         }else{
             var listOfKeys = self.getListOfKeys();
             _.each(listOfKeys, function(key) {
@@ -111,7 +120,7 @@ module.exports = cls.Class.extend({
 
     broadcast: function(key, data) {
         _.each(this.clients, function(client){
-            if(client.key == key){
+            if(client.key == key || client.key  == 'all'){
                 client.ws.send(data);
             }
         });
@@ -119,9 +128,14 @@ module.exports = cls.Class.extend({
 
     getListOfKeys: function() {
         var listOfKeys = [];
+        var self = this;
         _.each(this.clients, function(c) {
-            if(!_.contains(listOfKeys, c.key)){
-                listOfKeys.push(c.key);
+            if(c.key == 'all'){
+                listOfKeys = self.app.getAllWorkerKeys();
+            }else{
+                if(!_.contains(listOfKeys, c.key)){
+                    listOfKeys.push(c.key);
+                }
             }
         });
         return listOfKeys;

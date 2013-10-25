@@ -83,6 +83,18 @@ module.exports = cls.Class.extend({
         }
     },
 
+    getAllWorkersData: function(callback){
+        var done = 0;
+        var self = this;
+
+        _.each(this.workers, function(worker, key) {
+            self.getWorkerData(key, function(data) {
+                done++;
+                callback(key, data, done == _.size(self.workers));
+            });
+        });
+    },
+
     getWorkerData: function(key, callback){
         if(!this.workers[key]){
             callback({error: 'Worker not found'});

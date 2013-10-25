@@ -1,5 +1,5 @@
 block request_template
-    .list-group-item(class=(req.duration?'finished':'active')+(req.error?' list-group-item-danger':''),id='req_'+ID)
+    .list-group-item(class=(req.duration?'finished':'active')+(req.error?' list-group-item-danger':''),id=key+'_req_'+ID)
         if req.duration
             .badge= req.duration + ' ms'
         else
@@ -12,4 +12,4 @@ block request_template
         -seconds = req.start.getSeconds().toString();
         -minutesString = '00'.slice(0,minutes.length-2)+minutes;
         -secondsString = '00'.slice(0,seconds.length-2)+seconds;
-        small= ' (Start: ' + req.start.getHours() + ':' + minutesString + ':' + secondsString +')'
+        small= ' (Start:&nbsp;' + req.start.getHours() + ':' + minutesString + ':' + secondsString +')'

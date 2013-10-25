@@ -11,7 +11,7 @@ module.exports = cls.Class.extend({
     },
 
     start: function() {
-        console.log('Worker started.');
+        console.log('Worker started.',this.key || this.config.key);
         var self = this;
         this.workerStart = new Date();
         this.interval = setInterval(function() {self.step(); }, 10);

@@ -6,12 +6,12 @@ var squel = require("squel");
 var shared = require("./shared");
 
 module.exports = Worker.extend({
-    init: function(region){
+    init: function(key){
         this.config = {
             maxActiveRequests: 2,
             clansInRequest: 50,
             waitMultiplier: 1.2,
-            region: region
+            key: key
         };
 
         this.cycleData = {
@@ -33,18 +33,18 @@ module.exports = Worker.extend({
         this.requestID = 0;
         this.badIDs = require('./bad_ids');
 
-        if(this.config.region == 'EU1'){
+        if(this.config.key == 'EU1'){
             this.clanIDRange = [500000000,500016375];
         }
-        if(this.config.region == 'EU2'){
+        if(this.config.key == 'EU2'){
             this.clanIDRange = [500016375,1000000000];
         }
-        if(this.config.region == 'NA'){
+        if(this.config.key == 'NA'){
             this.config.maxActiveRequests = 4;
             this.config.clansInRequest = 25;
             this.clanIDRange = [1000000000,2000000000];
         }
-        if(this.config.region == 'RU-SEA-KR'){
+        if(this.config.key == 'RU-SEA-KR'){
             this.config.maxActiveRequests = 4;
             this.config.clansInRequest = 25;
             this.clanIDRange = [[0,500000000],[2000000000,2500000000],[3000000000,4000000000]];
@@ -79,7 +79,7 @@ module.exports = Worker.extend({
     },
 
     getCurrentState: function(){
-        var ret = {cycleData: this.cycleData};
+        var ret = {key: this.config.key, cycleData: this.cycleData};
         ret.speeds = {currentSpeed: this.getCurrentSpeed(), averageSpeed: this.getAverageSpeed(), duration: this.getCurrentDuration()};
         ret.cycleData.errorRate = this.getErrorRate();
         ret.cycleTimes = {completion: this.getCompletion(), duration: this.getCycleDuration(true), remainingTime: this.getCycleRemainingTime(true)};
@@ -246,7 +246,7 @@ module.exports = Worker.extend({
                 tag: clan.tag
             };
         });
-        if(this.config.region == 'RU-SEA-KR'){
+        if(this.config.key == 'RU-SEA-KR'){
             this.lastRequests[ID].region = shared.TranslatedRegion[shared.getRegion(clans[0].id)];
         }
 

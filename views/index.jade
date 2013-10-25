@@ -6,6 +6,7 @@ block content
           small  Visual interface for WoTcs.com clans API server
 
   .btn-group
+      a.btn.btn-default(href="?key=all",class=key=='all'?'active':'') All threads
       a.btn.btn-default(href="?key=EU1",class=key=='EU1'?'active':'') EU (Thread #1)
       a.btn.btn-default(href="?key=EU2",class=key=='EU2'?'active':'') EU (Thread #2)
       a.btn.btn-default(href="?key=NA",class=key=='NA'?'active':'') NA
@@ -21,40 +22,40 @@ block content
           .col-sm-4
             .list-group
                 .list-group-item
-                    .badge#current_speed= speeds.currentSpeed + ' clans/s'
+                    .badge(id=key+'_current_speed')= speeds.currentSpeed + ' clans/s'
                     | Current speed *
                 .list-group-item
-                    .badge#average_speed= speeds.averageSpeed + ' clans/s'
+                    .badge(id=key+'_average_speed')= speeds.averageSpeed + ' clans/s'
                     | Average speed
                 .list-group-item
-                    .badge#current_duration= speeds.duration + ' ms'
+                    .badge(id=key+'_current_duration')= speeds.duration + ' ms'
                     | Current request duration *
 
           .col-sm-4
             .list-group
                 .list-group-item
-                    .badge#running_time= cycleTimes.duration
+                    .badge(id=key+'_running_time')= cycleTimes.duration
                     | Cycle running time
                 .list-group-item
-                    .badge#remaining_time= cycleTimes.remainingTime
+                    .badge(id=key+'_remaining_time')= cycleTimes.remainingTime
                     | Cycle remaining time
                 .list-group-item
-                    .badge#completion= cycleTimes.completion + ' %'
+                    .badge(id=key+'_completion')= cycleTimes.completion + ' %'
                     | Cycle completion
 
           .col-sm-4
               .list-group
                   .list-group-item
-                      .badge#finished_requests= cycleData.finishedRequests
+                      .badge(id=key+'_finished_requests')= cycleData.finishedRequests
                       | Finished requests
                   .list-group-item
-                      .badge#error_requests= cycleData.errorRequests
+                      .badge(id=key+'_error_requests')= cycleData.errorRequests
                       | Error requests
                   .list-group-item
-                      .badge#error_rate= cycleData.errorRate + ' %'
+                      .badge(id=key+'_error_rate')= cycleData.errorRate + ' %'
                       | Error rate
 
-      .progress
+      .progress(id=key+'_progress')
           .progress-bar(role='progress-bar',style='width:'+cycleTimes.completion+'%')
 
       .row
@@ -62,7 +63,7 @@ block content
               .panel.panel-default
                   .panel-heading
                       h3 List of requests
-                  .list-group#request_list
+                  .list-group(id=key+'_request_list')
 
       script.
           APIData = {key: '!{key}'}

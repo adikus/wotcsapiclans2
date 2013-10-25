@@ -28,13 +28,29 @@ module.exports = cls.Class.extend({
         this.workers[key] = worker;
     },
 
+    getAllWorkerKeys: function() {
+        var ret  = _.keys(this.messenger.workers);
+        if(this.worker_key){
+            ret.push(this.worker_key);
+        }
+        return ret;
+    },
+
     homepage: function(req, res){
-        var key = req.query.key || 'EU1';
-        this.getWorkerData(key, function(data) {
-            data.key = key;
-            data.title = 'Clan loader';
-            res.render('index', data);
-        });
+        var key = req.query.key || 'all';
+        if(key == 'all'){
+            this.getAllWorkersData(function(data) {
+                data.key = key;
+                data.title = 'Clan loader';
+                res.render('all', data);
+            });
+        }else{
+            this.getWorkerData(key, function(data) {
+                data.key = key;
+                data.title = 'Clan loader';
+                res.render('index', data);
+            });
+        }
     },
 
     onWorkerUpdate: function(callback) {
@@ -50,6 +66,20 @@ module.exports = cls.Class.extend({
                 callback(key, data);
             });
         }
+    },
+
+    getAllWorkersData: function (callback) {
+        var ret = {};
+        if(this.worker_key){
+            ret[this.worker_key] = this.workers[this.worker_key].getCurrentState();
+            ret[this.worker_key].lastRequests = this.workers[this.worker_key].lastRequests;
+        }
+        this.messenger.getAllWorkersData(function(key, data, done){
+            ret[key] = data;
+            if(done){
+                callback(ret);
+            }
+        });
     },
 
     getWorkerData: function (key, callback){

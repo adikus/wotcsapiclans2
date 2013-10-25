@@ -12,13 +12,15 @@ var ServerMessages = {
 
 $(function(){
     if(window.APIData){
-        APIData.lastRequests = {};
+        APIData.lastRequests = {'EU1':{},'EU2':{},'NA':{},'RU-SEA-KR':{}};
 
         setInterval(function(){
-            for(var i in APIData.lastRequests){
-                if(!APIData.lastRequests[i].duration){
-                    var duration = (new Date()).getTime() - (new Date(APIData.lastRequests[i].start)).getTime() + ' ms';
-                    $('#req_'+i+' .badge').html(duration);
+            for(var key in APIData.lastRequests){
+                for(var i in APIData.lastRequests[key]){
+                    if(!APIData.lastRequests[key][i].duration){
+                        var duration = (new Date()).getTime() - (new Date(APIData.lastRequests[key][i].start)).getTime() + ' ms';
+                        $('#'+key+'_req_'+i+' .badge').html(duration);
+                    }
                 }
             }
         },100);
@@ -36,6 +38,7 @@ $(function(){
             var msg = JSON.parse(decompressedData);
             var data = msg[1] || {};
             var action = msg[0];
+            var key = data.key;
 
             if(data.error){
                 console.log(data.error);
@@ -50,60 +53,47 @@ $(function(){
                 APIData.sync.offset = APIData.sync.server.getTime() - APIData.sync.midpoint.getTime();
                 console.log(APIData.sync);
 
-                $('#request_list').html('');
-                for(var i in APIData.lastRequests){
-                    var req = APIData.lastRequests[i];
-                    req.start = adjustTime(req.start);
-                    if(req.end){
-                        req.end = adjustTime(req.end);
-                    }
-                    APIData.lastRequests[i] = req;
-                    $('#request_list').prepend(getTemplate('request_template',{req: req, ID: i}));
-                }
-
                 return;
             }
-            //console.log('Compression',event.data.length/decompressedData.length*100,'%',event.data.length);
-            //console.log(msg[0],data);
 
-            $('#current_speed').html(data.speeds.currentSpeed + ' clans/s');
-            $('#average_speed').html(data.speeds.averageSpeed + ' clans/s');
-            $('#current_duration').html(data.speeds.duration + ' ms');
+            $('#'+key+'_current_speed').html(data.speeds.currentSpeed + ' clans/s');
+            $('#'+key+'_average_speed').html(data.speeds.averageSpeed + ' clans/s');
+            $('#'+key+'_current_duration').html(data.speeds.duration + ' ms');
 
-            $('#running_time').html(data.cycleTimes.duration);
-            $('#remaining_time').html(data.cycleTimes.remainingTime);
-            $('#completion').html(data.cycleTimes.completion + ' %');
+            $('#'+key+'_running_time').html(data.cycleTimes.duration);
+            $('#'+key+'_remaining_time').html(data.cycleTimes.remainingTime);
+            $('#'+key+'_completion').html(data.cycleTimes.completion + ' %');
 
-            $('.progress-bar').attr('style', 'width:' + data.cycleTimes.completion + '%');
+            $('#'+key+'_progress .progress-bar').attr('style', 'width:' + data.cycleTimes.completion + '%');
 
-            $('#finished_requests').html(data.cycleData.finishedRequests);
-            $('#error_requests').html(data.cycleData.errorRequests);
-            $('#error_rate').html(data.cycleData.errorRate + ' %');
+            $('#'+key+'_finished_requests').html(data.cycleData.finishedRequests);
+            $('#'+key+'_error_requests').html(data.cycleData.errorRequests);
+            $('#'+key+'_error_rate').html(data.cycleData.errorRate + ' %');
 
             if(action == ServerMessages.FINISH_REQ){
                 var ID = data.actionData.id;
                 var req = parseRequestTimes(data.actionData.req);
-                APIData.lastRequests[ID] = req;
-                $('#req_'+ID+' .badge').html(req.duration+' ms');
-                $('#req_'+ID).removeClass('active').addClass('finished');
+                APIData.lastRequests[key][ID] = req;
+                $('#'+key+'_req_'+ID+' .badge').html(req.duration+' ms');
+                $('#'+key+'_req_'+ID).removeClass('active').addClass('finished');
                 if(data.actionData.error){
-                    $('#req_'+ID).addClass('list-group-item-danger');
-                    $('#req_'+ID+' i').html(' - '+req.error);
+                    $('#'+key+'_req_'+ID).addClass('list-group-item-danger');
+                    $('#'+key+'_req_'+ID+' i').html(' - '+req.error);
                 }
             }else if(action == ServerMessages.ADD_REQ){
                 var ID = data.actionData.id;
                 var req = parseRequestTimes(data.actionData.req);
-                APIData.lastRequests[ID] = req;
-                $('#request_list').prepend(getTemplate('request_template',{req: req, ID: ID}));
+                APIData.lastRequests[key][ID] = req;
+                $('#'+key+'_request_list').prepend(getTemplate('request_template',{key: key, req: req, ID: ID}));
             }else if(action == ServerMessages.PAST_REQS){
-                $('#request_list').html('');
+                $('#'+key+'_request_list').html('');;
                 for(var i in data.lastRequests){
                     var req = parseRequestTimes(data.lastRequests[i]);
-                    APIData.lastRequests[i] = req;
-                    $('#request_list').prepend(getTemplate('request_template',{req: req, ID: i}));
+                    APIData.lastRequests[key][i] = req;
+                    $('#'+key+'_request_list').prepend(getTemplate('request_template',{key: key, req: req, ID: i}));
                 }
             }else if(action == ServerMessages.CYCLE_START){
-                $('#request_list').html('');
+                $('#'+key+'_request_list').html('');
             }
         };
     }else{

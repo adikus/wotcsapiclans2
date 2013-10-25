@@ -5906,6 +5906,9 @@ td.visible-print {
     display: none !important;
   }
 }
+.list-group.condensed {
+  font-size: 0.9em;
+}
 .list-group-item-danger {
   color: #b94a48;
   background-color: #f2dede;
