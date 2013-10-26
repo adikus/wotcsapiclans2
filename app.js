@@ -9,6 +9,14 @@ module.exports = cls.Class.extend({
         this.controllers = require("./controllers");
     },
 
+    loadModels: function() {
+        var self = this;
+        this.models = require("./models")(this.db);
+        _.each(this.models,  function(model, name) {
+            self[name] = model;
+        });
+    },
+
     handleAction: function(controllerName, actionName, req, res) {
         if(!this.controllers[controllerName]){
             res.render('index', {error: 'Controller not found('+controllerName+').'});

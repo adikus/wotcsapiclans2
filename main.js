@@ -18,6 +18,7 @@ function main(){
                 db: db,
                 messenger: messenger
             });
+            app.loadModels();
             messenger.dependencies({
                 app: app
             });
@@ -44,6 +45,7 @@ function main(){
                 db: db,
                 messenger: messenger
             });
+            app.loadModels();
             messenger.dependencies({
                 app: app
             });

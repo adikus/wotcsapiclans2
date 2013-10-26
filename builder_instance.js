@@ -23,7 +23,7 @@ module.exports = cls.Class.extend({
 
     exec: function(callback){
         var query = this.squel.toString();
-        this.db.client.query(query, function(err, results) {
+        this.db.query(query, function(err, results) {
             if(err) {
                 console.error('Error running query', err, query);
             }

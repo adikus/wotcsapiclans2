@@ -53,19 +53,10 @@ module.exports = Worker.extend({
 
     loadData: function() {
         var self = this;
-        var query
-        if(_.isArray(this.clanIDRange[0])){
-            query = this.app.db.builder.select().from("clans");
-            query.where(
-                "(id >= ? AND id < ?) OR (id >= ? AND id < ?) OR (id >= ? AND id < ?)",
-                this.clanIDRange[0][0],this.clanIDRange[0][1],this.clanIDRange[1][0],this.clanIDRange[1][1],this.clanIDRange[2][0],this.clanIDRange[2][1]
-            ).order('id');
-        }else{
-            query = this.app.db.builder.select().from("clans").where("id >= ? AND id < ?",this.clanIDRange[0],this.clanIDRange[1]);
-        }
-        query.exec(function(err, results){
-            self.clans = results.rows;
-            self.cycleData.totalClans = results.rowCount;
+
+        this.app.Clans.whereIDsBetween(this.clanIDRange, function(err, clans) {
+            self.clans = clans;
+            self.cycleData.totalClans = clans.length;
             self.ready = true;
             if(self.ready_callback){
                 self.ready_callback();
