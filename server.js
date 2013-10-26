@@ -43,8 +43,14 @@ module.exports = cls.Class.extend({
 
     configureRoutes: function(app){
         var self = this;
-        app.get('/', function(req, res){
-            self.app.homepage(req, res);
+        this.routes = require("./routes");
+        _.each(this.routes, function(route, key){
+            var routeSplit = route.split('#');
+            var controller = routeSplit[0]
+            var action = routeSplit[1];
+            app.get(key, function(req, res){
+                self.app.handleAction(controller, action, req, res);
+            });
         });
     },
 

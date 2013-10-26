@@ -6,6 +6,21 @@ module.exports = cls.Class.extend({
     init: function(isMaster){
         this.workers = {};
         this.isMaster = isMaster;
+        this.controllers = require("./controllers");
+    },
+
+    handleAction: function(controllerName, actionName, req, res) {
+        if(!this.controllers[controllerName]){
+            res.render('index', {error: 'Controller not found('+controllerName+').'});
+            return;
+        }
+        var controller = new this.controllers[controllerName];
+        controller.dependencies({
+            app: this,
+            res: res,
+            req: req
+        });
+        controller.callAction(actionName);
     },
 
     dependencies: function(dependencies){
@@ -34,23 +49,6 @@ module.exports = cls.Class.extend({
             ret.push(this.worker_key);
         }
         return ret;
-    },
-
-    homepage: function(req, res){
-        var key = req.query.key || 'all';
-        if(key == 'all'){
-            this.getAllWorkersData(function(data) {
-                data.key = key;
-                data.title = 'Clan loader';
-                res.render('all', data);
-            });
-        }else{
-            this.getWorkerData(key, function(data) {
-                data.key = key;
-                data.title = 'Clan loader';
-                res.render('index', data);
-            });
-        }
     },
 
     onWorkerUpdate: function(callback) {
