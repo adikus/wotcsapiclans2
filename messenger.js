@@ -10,7 +10,7 @@ module.exports = cls.Class.extend({
             this.setupMaster();
         }
         this.callbacks = {};
-        this.workersReady = 0;
+        this.workersReady = {};
     },
 
     setupMaster: function() {
@@ -27,6 +27,7 @@ module.exports = cls.Class.extend({
         var self = this;
 
         this.workers[key] = worker;
+        this.workersReady[key] = false;
 
         worker.on('message', function(msg) {
             self.handleWorkerMessage(key, msg);
@@ -51,17 +52,30 @@ module.exports = cls.Class.extend({
         }
     },
 
+    readyCount: function() {
+        return _.reduce(this.workersReady, function(memo, ready){  return memo+(ready?1:0); }, 0);
+    },
+
     handleWorkerMessage: function(key, msg) {
         var action = msg[0];
         var data = msg[1] || {};
 
         if(action == MC.cluster.client.GET_TASK){
             console.log('Worker '+key+' online, sending task');
-            this.workersReady++;
-            if(this.workersReady == _.size(this.workers) && this.ready_callback){
+            this.workersReady[key] = true;
+            if(this.readyCount() == _.size(this.workers) && this.ready_callback){
                 this.ready_callback();
             }
-            this.workers[key].send([0,key]);
+            if((key == 'EU1' && this.workersReady['EU2'] == true)
+                || (key == 'EU2' && this.workersReady['EU1'] == true)){
+                var worker = this.workers[key];
+                console.log('Desync',key,'by 1s');
+                setTimeout(function(){
+                    worker.send([0,key]);
+                }, 1000);
+            }else{
+                this.workers[key].send([0,key]);
+            }
         }
         if(action == MC.cluster.client.WORKER_UPDATE){
             if(this.worker_update_callback){
