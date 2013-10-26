@@ -79,12 +79,13 @@ module.exports = cls.Class.extend({
             ws.on('message', function(data) {
                 var msg = JSON.parse(data);
                 if(msg[0] == MC.ws.client.SYNC){
-                    self.clients[ID] = {ws: ws, key: msg[1]};
+                    self.clients[ID] = {ws: ws, key: msg[1], open: true};
                     self.sendWorkerData(self.clients[ID]);
                     ws.send(self.prepareMessage([MC.ws.server.SYNC,new Date()]));
                 }
             });
             ws.on('close', function() {
+                self.clients[ID].open = false;
                 delete self.clients[ID];
                 console.log('Websocket connection close');
             });
@@ -103,13 +104,17 @@ module.exports = cls.Class.extend({
                 this.app.getAllWorkersData(function(data){
                     _.each(data, function(threadData) {
                         var preparedData = self.prepareMessage([MC.ws.server.PAST_REQS, threadData]);
-                        client.ws.send(preparedData);
+                        if(client.open){
+                            client.ws.send(preparedData);
+                        }
                     });
                 });
             }else{
                 this.app.getWorkerData(client.key,function(data){
                     var preparedData = self.prepareMessage([MC.ws.server.PAST_REQS, data]);
-                    client.ws.send(preparedData);
+                    if(client.open){
+                        client.ws.send(preparedData);
+                    }
                 });
             }
         }else{
@@ -127,7 +132,9 @@ module.exports = cls.Class.extend({
     broadcast: function(key, data) {
         _.each(this.clients, function(client){
             if(client.key == key || client.key  == 'all'){
-                client.ws.send(data);
+                if(client.open){
+                    client.ws.send(data);
+                }
             }
         });
     },
