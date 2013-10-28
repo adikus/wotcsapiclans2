@@ -7,7 +7,7 @@ copyClansToPG();
 function copyClansToPG(){
     squel.useFlavour('postgres');
 
-    var PGclient = new pg.Client(process.env.API_POSTGRE || process.env.HEROKU_POSTGRESQL_MAROON_URL);
+    var PGclient = new pg.Client(process.env.API_POSTGRE || process.env.DATABASE_URL);
     PGclient.connect(function(err) {
         if(err) {
             return console.error('Could not connect to postgres', err);
