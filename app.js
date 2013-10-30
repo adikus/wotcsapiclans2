@@ -1,6 +1,7 @@
 var cls = require("./lib/class");
 var _ = require("underscore");
 var ClanLoader = require('./clan_loader');
+var shared = require('./shared');
 
 module.exports = cls.Class.extend({
     init: function(isMaster){
@@ -11,7 +12,7 @@ module.exports = cls.Class.extend({
 
     loadModels: function() {
         var self = this;
-        this.models = require("./models")(this.db);
+        this.models = require("./models")(this.db, this);
         _.each(this.models,  function(model, name) {
             self[name] = model;
         });
@@ -95,6 +96,47 @@ module.exports = cls.Class.extend({
             callback(ret);
         }else{
             this.messenger.getWorkerData(key, callback);
+        }
+    },
+
+    processClans: function (clans, data){
+        var IDs = _.pluck(clans,'id');
+        var self = this;
+        this.models.Players.where(['clan_id IN ?', IDs], function(err, players) {
+            var clanPlayers = {};
+            _.each(players, function(player){
+                if(!clanPlayers[player.clan_id]){
+                    clanPlayers[player.clan_id] = [];
+                }
+                clanPlayers[player.clan_id].push(player);
+            });
+            _.each(clans, function(clan){
+                clan.members = clanPlayers[clan.id] || [];
+                clan.update(data[clan.id], function(data) {
+                    if(self.workers[self.worker_key].registeredCallback(clan.id)){
+                        self.workers[self.worker_key].executeCallbacks(clan.id, data);
+                    }
+                });
+            });
+        });
+    },
+
+    addClan: function(id, callback) {
+        var key;
+        var region = shared.getRegion(id);
+        if(region == shared.Regions.RU || region == shared.Regions.SEA || region == shared.Regions.KR){
+            key = 'RU-SEA-KR';
+        }else if(region == shared.Regions.NA){
+            key = 'NA';
+        }else if(region == shared.Regions.EU && id < 500016375){
+            key = 'EU1';
+        }else{
+            key = 'EU2';
+        }
+        if(this.workers[key]){
+            this.workers[key].addClan(id, callback);
+        }else{
+            this.messenger.addClan(key, id, callback);
         }
     }
 });

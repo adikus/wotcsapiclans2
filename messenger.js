@@ -50,6 +50,13 @@ module.exports = cls.Class.extend({
                 process.send([MC.cluster.client.SEND_WORKER_DATA, data]);
             });
         }
+        if(action == MC.cluster.master.ADD_CLAN){
+            var id = data;
+            this.app.addClan(id, function(data) {
+                data.id = id;
+                process.send([MC.cluster.client.ADD_CLAN_RESPONSE, data]);
+            });
+        }
     },
 
     readyCount: function() {
@@ -59,22 +66,28 @@ module.exports = cls.Class.extend({
     handleWorkerMessage: function(key, msg) {
         var action = msg[0];
         var data = msg[1] || {};
+        var self = this;
+        var id = null;
 
         if(action == MC.cluster.client.GET_TASK){
             console.log('Worker '+key+' online, sending task');
-            this.workersReady[key] = true;
-            if(this.readyCount() == _.size(this.workers) && this.ready_callback){
-                this.ready_callback();
-            }
             if((key == 'EU1' && this.workersReady['EU2'] == true)
                 || (key == 'EU2' && this.workersReady['EU1'] == true)){
                 var worker = this.workers[key];
                 console.log('Desync',key,'by 1s');
                 setTimeout(function(){
                     worker.send([0,key]);
+                    self.workersReady[key] = true;
+                    if(self.readyCount() == _.size(self.workers) && self.ready_callback){
+                        self.ready_callback();
+                    }
                 }, 1000);
             }else{
+                this.workersReady[key] = true;
                 this.workers[key].send([0,key]);
+                if(this.readyCount() == _.size(this.workers) && this.ready_callback){
+                    this.ready_callback();
+                }
             }
         }
         if(action == MC.cluster.client.WORKER_UPDATE){
@@ -82,8 +95,11 @@ module.exports = cls.Class.extend({
                 this.worker_update_callback(key, data);
             }
         }
-        if(this.registeredCallback(key, action)){
-            this.executeCallbacks(key, action, data);
+        if(action == MC.cluster.client.ADD_CLAN_RESPONSE){
+            id = data.id;
+        }
+        if(this.registeredCallback(key, action, id || 0)){
+            this.executeCallbacks(key, action, id || 0, data);
         }
     },
 
@@ -114,31 +130,41 @@ module.exports = cls.Class.extend({
             callback({error: 'Worker not found'});
             return;
         }
-        if(!this.registeredCallback(key, MC.cluster.master.GET_WORKER_DATA)){
+        if(!this.registeredCallback(key, MC.cluster.master.GET_WORKER_DATA, 0)){
             this.workers[key].send([MC.cluster.master.GET_WORKER_DATA]);
         }
-        this.registerCallback(key, MC.cluster.master.GET_WORKER_DATA, callback);
+        this.registerCallback(key, MC.cluster.master.GET_WORKER_DATA, 0, callback);
     },
 
-    registeredCallback: function(key, action){
-        return (this.callbacks[key] &&  this.callbacks[key][action]);
+    addClan: function(key, id, callback){
+        if(!this.registeredCallback(key, MC.cluster.client.ADD_CLAN_RESPONSE, id)){
+            this.workers[key].send([MC.cluster.master.ADD_CLAN,id]);
+        }
+        this.registerCallback(key, MC.cluster.client.ADD_CLAN_RESPONSE, id, callback);
     },
 
-    registerCallback: function(key, action, callback){
+    registeredCallback: function(key, action, id){
+        return (this.callbacks[key] &&  this.callbacks[key][action] &&  this.callbacks[key][action][id]);
+    },
+
+    registerCallback: function(key, action, id, callback){
         if(!this.callbacks[key]){
             this.callbacks[key] = {};
         }
         if(!this.callbacks[key][action]){
-            this.callbacks[key][action] = [];
+            this.callbacks[key][action] = {};
         }
-        this.callbacks[key][action].push(callback);
+        if(!this.callbacks[key][action][id]){
+            this.callbacks[key][action][id] = [];
+        }
+        this.callbacks[key][action][id].push(callback);
     },
 
-    executeCallbacks: function(key, action, data){
-        _.each(this.callbacks[key][action], function(callback){
+    executeCallbacks: function(key, action, id, data){
+        _.each(this.callbacks[key][action][id], function(callback){
             callback(data);
         });
-        delete this.callbacks[key][action];
+        delete this.callbacks[key][action][id];
     },
 
     onDependencies: function(callback) {

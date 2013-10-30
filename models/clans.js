@@ -18,7 +18,7 @@ module.exports = BaseCollection.extend({
             where.push(r[0], r[1]);
         });
 
-        this.where(where, callback);
+        this.where(where, {order: 'id'}, callback);
     }
 
 });

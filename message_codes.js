@@ -16,12 +16,14 @@ module.exports = {
     cluster: {
         master: {
             ASSIGN_TASK: 0,
-            GET_WORKER_DATA: 1
+            GET_WORKER_DATA: 1,
+            ADD_CLAN: 2
         },
         client: {
             GET_TASK: 0,
             SEND_WORKER_DATA: 1,
-            WORKER_UPDATE: 2
+            WORKER_UPDATE: 2,
+            ADD_CLAN_RESPONSE: 3
         }
     }
 };

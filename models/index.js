@@ -1,6 +1,6 @@
 var _ = require('underscore');
 
-module.exports = function( db ) {
+module.exports = function( db, app ) {
     var ret = {};
     var models = {};
 
@@ -16,7 +16,7 @@ module.exports = function( db ) {
 
     _.each(models,function (model, name) {
         if(name.slice(-1) == 's'){
-            ret[name] = new model(db, models);
+            ret[name] = new model(db, app, models);
         }
     });
 

@@ -3,8 +3,9 @@ var _ = require('underscore');
 
 module.exports = cls.Class.extend({
 
-    init: function (db, constructors) {
+    init: function (db, app, constructors) {
         this.db = db;
+        this.app = app;
         var self = this;
         this.db.databases.Mongo[this.dbName].client.collection(this.collectionName, function(err, collection) {
             if(err){
@@ -30,7 +31,7 @@ module.exports = cls.Class.extend({
     },
 
     new: function (params) {
-        return new this.constructor(this.db, params);
+        return new this.constructor(this.db, this.app, params);
     }
 
 });

@@ -23,6 +23,8 @@ module.exports = Worker.extend({
             start: null
         };
 
+        this.callbacks = {};
+
         this.lastRequests = [];
         this.clansBeingLoaded = {};
 
@@ -112,8 +114,35 @@ module.exports = Worker.extend({
         this.config[name] = value;
     },
 
-    loadClan: function(){
-        console.log('TODO');
+    addClan: function(id, callback){
+        if(!this.registeredCallback(id)){
+            if(this.clans){
+                var clan = this.app.Clans.new({id: id});
+                this.clans.push(clan);
+            }else{
+                callback({error: 'Loader not initialized'});
+                return;
+            }
+        }
+        this.registerCallback(id, callback);
+    },
+
+    registeredCallback: function(id){
+        return !!this.callbacks[id];
+    },
+
+    registerCallback: function(id, callback){
+        if(!this.callbacks[id]){
+            this.callbacks[id] = [];
+        }
+        this.callbacks[id].push(callback);
+    },
+
+    executeCallbacks: function(id, data){
+        _.each(this.callbacks[id], function(callback){
+            callback(data);
+        });
+        delete this.callbacks[id];
     },
 
     stop: function(force){
@@ -283,7 +312,7 @@ module.exports = Worker.extend({
             if(!allOK){
                 console.log(IDs);
             }
-            return allOK;
+            return allOK ? parsed : false;
         }else{
             return false;
         }
@@ -314,8 +343,10 @@ module.exports = Worker.extend({
         var req = new Request('clan',IDs,'description_html,abbreviation,motto,name,members.account_name');
 
         req.onSuccess(function(data) {
-            if(self.parseAndCheckData(data, IDs)){
+            var parsedData = self.parseAndCheckData(data, IDs);
+            if(parsedData){
                 self.finishRequest(ID, clans.length, false, clans);
+                self.app.processClans(clans, parsedData.data);
             }else{
                 self.finishRequest(ID, 0, 'API Error', clans);
                 //console.log('API Error.'/*, parsed.status, IDs*/);
