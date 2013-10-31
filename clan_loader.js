@@ -34,7 +34,6 @@ module.exports = Worker.extend({
         this.stopping = false;
         this.waitTime = 2000;
         this.requestID = 0;
-        this.badIDs = require('./bad_ids');
 
         if(this.config.key == 'EU1'){
             this.clanIDRange = [500000000,500016375];
@@ -122,7 +121,7 @@ module.exports = Worker.extend({
     addClan: function(id, callback){
         if(!this.registeredCallback(id)){
             if(this.clans){
-                var clan = this.app.Clans.new({id: id});
+                var clan = this.app.Clans.new({id: id, status: 0});
                 this.clans.push(clan);
             }else{
                 callback({error: 'Loader not initialized'});
@@ -246,15 +245,15 @@ module.exports = Worker.extend({
                 return;
             }
             var clanList = [];
-            for(var i = 0;i<this.config.clansInRequest;i++){
-                if(this.clans.length > 0){
-                    var tempClan = this.clans.pop();
-                    if(!_.contains(this.badIDs, parseInt(tempClan.id, 10))
-                        && (clanList.length == 0 || shared.getRegion(tempClan.id) == shared.getRegion(clanList[0].id))){
+            var regionChain = true;
+            while(clanList.length < this.config.clansInRequest && regionChain && this.clans.length > 0){
+                var tempClan = this.clans.pop();
+                if(clanList.length == 0 || shared.getRegion(tempClan.id) == shared.getRegion(clanList[0].id)){
+                    if(tempClan.status > -1){
                         clanList.push(tempClan);
                     }
                 }else{
-                    break;
+                    regionChain = false;
                 }
             }
             if(clanList.length > 0){
@@ -361,7 +360,9 @@ module.exports = Worker.extend({
             });
         }else{
             console.log('Bad ID', clans[0].id);
-            this.badIDs.push(clans[0].id);
+            var data = {};
+            data[clans[0].id] = null;
+            self.app.processClans([clans[0]], data);
         }
     },
 
