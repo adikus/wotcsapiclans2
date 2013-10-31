@@ -83,7 +83,9 @@ module.exports = cls.Class.extend({
         if(this.worker_key){
             ret[this.worker_key] = this.workers[this.worker_key].getCurrentState();
             ret[this.worker_key].lastRequests = this.workers[this.worker_key].lastRequests;
-            ret[this.worker_key].config = this.workers[this.worker_key].getConfig();
+            if(isAdmin){
+                ret[this.worker_key].config = this.workers[this.worker_key].getConfig();
+            }
         }
         this.messenger.getAllWorkersData(function(key, data, done){
             if(data.clansInRequest){
