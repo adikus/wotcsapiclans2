@@ -1,0 +1,12 @@
+block event_template
+    .list-group-item
+        if ch == 1
+            i= event.name
+            |  joined clan
+            b  [#{event.clan.tag}]
+            =  ' ' + event.clan.name
+        else
+            i= event.name
+            |  left clan
+            b  [#{event.clan.tag}]
+            =  ' ' + event.clan.name.

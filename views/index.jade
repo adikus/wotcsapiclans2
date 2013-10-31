@@ -64,6 +64,11 @@ block content
                   .panel-heading
                       h3 List of requests
                   .list-group(id=key+'_request_list')
+          .col-sm-8
+              .panel.panel-default
+                  .panel-heading
+                      h3 Events
+                  .list-group(id=key+'_event_list')
 
       script.
           APIData = {key: '!{key}'}

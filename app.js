@@ -64,6 +64,9 @@ module.exports = cls.Class.extend({
         var self = this;
 
         if(this.worker_key){
+            this.update_callback = function(data){
+                callback(self.worker_key, data);
+            };
             this.workers[this.worker_key].onUpdate(function(data){
                 callback(self.worker_key, data);
             });

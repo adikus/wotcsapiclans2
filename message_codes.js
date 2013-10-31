@@ -6,7 +6,9 @@ module.exports = {
             FINISH_REQ: 2,
             PAST_REQS: 3,
             CYCLE_DATA: 4,
-            CYCLE_START: 5
+            CYCLE_START: 5,
+            MEMBER_JOINED: 6,
+            MEMBER_LEFT: 7
         },
         client: {
             SYNC: 0

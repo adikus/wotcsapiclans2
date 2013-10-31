@@ -7,7 +7,9 @@ var ServerMessages = {
     FINISH_REQ: 2,
     PAST_REQS: 3,
     CYCLE_DATA: 4,
-    CYCLE_START: 5
+    CYCLE_START: 5,
+    MEMBER_JOINED: 6,
+    MEMBER_LEFT: 7
 };
 
 $(function(){
@@ -25,7 +27,7 @@ $(function(){
             }
         },100);
 
-        var host = location.origin.replace(/^http/, 'ws')
+        var host = location.origin.replace(/^http/, 'ws');
         var ws = new WebSocket(host);
 
         ws.onopen = function(){
@@ -56,19 +58,24 @@ $(function(){
                 return;
             }
 
-            $('#'+key+'_current_speed').html(data.speeds.currentSpeed + ' clans/s');
-            $('#'+key+'_average_speed').html(data.speeds.averageSpeed + ' clans/s');
-            $('#'+key+'_current_duration').html(data.speeds.duration + ' ms');
+            if(data.speeds){
+                $('#'+key+'_current_speed').html(data.speeds.currentSpeed + ' clans/s');
+                $('#'+key+'_average_speed').html(data.speeds.averageSpeed + ' clans/s');
+                $('#'+key+'_current_duration').html(data.speeds.duration + ' ms');
+            }
 
-            $('#'+key+'_running_time').html(data.cycleTimes.duration);
-            $('#'+key+'_remaining_time').html(data.cycleTimes.remainingTime);
-            $('#'+key+'_completion').html(data.cycleTimes.completion + ' %');
+            if(data.cycleTimes){
+                $('#'+key+'_running_time').html(data.cycleTimes.duration);
+                $('#'+key+'_remaining_time').html(data.cycleTimes.remainingTime);
+                $('#'+key+'_completion').html(data.cycleTimes.completion + ' %');
+                $('#'+key+'_progress .progress-bar').attr('style', 'width:' + data.cycleTimes.completion + '%');
+            }
 
-            $('#'+key+'_progress .progress-bar').attr('style', 'width:' + data.cycleTimes.completion + '%');
-
-            $('#'+key+'_finished_requests').html(data.cycleData.finishedRequests);
-            $('#'+key+'_error_requests').html(data.cycleData.errorRequests);
-            $('#'+key+'_error_rate').html(data.cycleData.errorRate + ' %');
+            if(data.cycleData){
+                $('#'+key+'_finished_requests').html(data.cycleData.finishedRequests);
+                $('#'+key+'_error_requests').html(data.cycleData.errorRequests);
+                $('#'+key+'_error_rate').html(data.cycleData.errorRate + ' %');
+            }
 
             if(action == ServerMessages.FINISH_REQ){
                 var ID = data.actionData.id;
@@ -94,6 +101,8 @@ $(function(){
                 }
             }else if(action == ServerMessages.CYCLE_START){
                 $('#'+key+'_request_list').html('');
+            }else if(action == ServerMessages.MEMBER_JOINED || action == ServerMessages.MEMBER_LEFT){
+                $('#'+key+'_event_list').prepend(getTemplate('event_template',{key: key, event: data.actionData, ch: action == ServerMessages.MEMBER_JOINED?1:-1}));
             }
         };
     }else{

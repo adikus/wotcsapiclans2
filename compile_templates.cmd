@@ -1,1 +1,1 @@
-clientjade -c views\templates\request_template.jade > public\javascripts\templates.js
+clientjade -c views/templates/ > public/javascripts/templates.js
