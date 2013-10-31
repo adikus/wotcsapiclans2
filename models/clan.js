@@ -107,12 +107,14 @@ module.exports = BaseModel.extend({
         }
         if(this.members.length > 0){
             console.log('Add player to clan', this.tag, ':', name);
-            this.app.update_callback({key: this.app.worker_key, actionData: {
-                code: MC.ws.server.MEMBER_JOINED,
-                id: id,
-                name: name,
-                clan: {name: this.name, tag: this.tag, id: this.id, region: shared.TranslatedRegion[shared.getRegion(this.id)]}
-            }});
+            if(this.app.update_callback){
+                this.app.update_callback({key: this.app.worker_key, actionData: {
+                    code: MC.ws.server.MEMBER_JOINED,
+                    id: id,
+                    name: name,
+                    clan: {name: this.name, tag: this.tag, id: this.id, region: shared.TranslatedRegion[shared.getRegion(this.id)]}
+                }});
+            }
             //TODO add member change
         }
         player.save(listOfAttributes);
@@ -120,12 +122,14 @@ module.exports = BaseModel.extend({
 
     removePlayer: function(player) {
         console.log('Remove player from clan', this.tag, ':', player.name);
-        this.app.update_callback({key: this.app.worker_key, actionData: {
-            code: MC.ws.server.MEMBER_LEFT,
-            id: player.id,
-            name: player.name,
-            clan: {name: this.name, tag: this.tag, id: this.id, region: shared.TranslatedRegion[shared.getRegion(this.id)]}
-        }});
+        if(this.app.update_callback){
+            this.app.update_callback({key: this.app.worker_key, actionData: {
+                code: MC.ws.server.MEMBER_LEFT,
+                id: player.id,
+                name: player.name,
+                clan: {name: this.name, tag: this.tag, id: this.id, region: shared.TranslatedRegion[shared.getRegion(this.id)]}
+            }});
+        }
         player.clan_id = 0;
         player.save(['clan_id']);
         //TODO add member change
