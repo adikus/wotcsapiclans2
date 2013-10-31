@@ -44,13 +44,21 @@ module.exports = cls.Class.extend({
     configureRoutes: function(app){
         var self = this;
         this.routes = require("./routes");
-        _.each(this.routes, function(route, key){
-            var routeSplit = route.split('#');
-            var controller = routeSplit[0]
-            var action = routeSplit[1];
-            app.get(key, function(req, res){
-                self.app.handleAction(controller, action, req, res);
-            });
+        _.each(this.routes.get, function(route, key){
+            self.configureRoute(app, route, key, 'get');
+        });
+        _.each(this.routes.post, function(route, key){
+            self.configureRoute(app, route, key, 'post');
+        });
+    },
+
+    configureRoute: function(app, route, key, method){
+        var routeSplit = route.split('#');
+        var controller = routeSplit[0]
+        var action = routeSplit[1];
+        var self = this;
+        app[method](key, function(req, res){
+            self.app.handleAction(controller, action, req, res);
         });
     },
 
@@ -82,6 +90,12 @@ module.exports = cls.Class.extend({
                     self.clients[ID] = {ws: ws, key: msg[1], open: true};
                     self.sendWorkerData(self.clients[ID]);
                     ws.send(self.prepareMessage([MC.ws.server.SYNC,new Date()]));
+                }else if(msg[0] == MC.ws.client.SECRET){
+                    if(msg[1].config){
+                        self.app.setWorkerConfig(msg[1].key, msg[1].config);
+                    }else if(msg[1].pause != undefined){
+                        self.app.pauseWorker(msg[1].key, msg[1].pause);
+                    }
                 }
             });
             ws.on('close', function() {
@@ -100,7 +114,7 @@ module.exports = cls.Class.extend({
         var self = this;
 
         if(client){
-            if(client.key == 'all'){
+            if(client.key == 'all' || client.key == 'admin'){
                 this.app.getAllWorkersData(function(data){
                     _.each(data, function(threadData) {
                         var preparedData = self.prepareMessage([MC.ws.server.PAST_REQS, threadData]);
@@ -108,7 +122,7 @@ module.exports = cls.Class.extend({
                             client.ws.send(preparedData);
                         }
                     });
-                });
+                }, client.key == 'admin');
             }else{
                 this.app.getWorkerData(client.key,function(data){
                     var preparedData = self.prepareMessage([MC.ws.server.PAST_REQS, data]);
@@ -131,7 +145,7 @@ module.exports = cls.Class.extend({
 
     broadcast: function(key, data) {
         _.each(this.clients, function(client){
-            if(client.key == key || client.key  == 'all'){
+            if(client.key == key || client.key  == 'all' || client.key  == 'admin'){
                 if(client.open){
                     client.ws.send(data);
                 }
@@ -143,7 +157,7 @@ module.exports = cls.Class.extend({
         var listOfKeys = [];
         var self = this;
         _.each(this.clients, function(c) {
-            if(c.key == 'all'){
+            if(c.key == 'all' || c.key == 'admin'){
                 listOfKeys = self.app.getAllWorkerKeys();
             }else{
                 if(!_.contains(listOfKeys, c.key)){

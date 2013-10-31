@@ -44,18 +44,27 @@ module.exports = cls.Class.extend({
             this.app.onWorkerUpdate(function(key, workerData){
                 process.send([MC.cluster.client.WORKER_UPDATE, workerData]);
             });
-        }
-        if(action == MC.cluster.master.GET_WORKER_DATA){
+        }else if(action == MC.cluster.master.GET_WORKER_DATA){
             this.app.getWorkerData(this.app.worker_key, function(data) {
                 process.send([MC.cluster.client.SEND_WORKER_DATA, data]);
             });
-        }
-        if(action == MC.cluster.master.ADD_CLAN){
+        }else if(action == MC.cluster.master.GET_WORKER_CONFIG){
+            this.app.getWorkerConfig(this.app.worker_key, function(data) {
+                process.send([MC.cluster.client.SEND_WORKER_CONFIG, data]);
+            });
+        }else if(action == MC.cluster.master.ADD_CLAN){
             var id = data;
             this.app.addClan(id, function(data) {
                 data.id = id;
                 process.send([MC.cluster.client.ADD_CLAN_RESPONSE, data]);
             });
+        }else if(action == MC.cluster.master.SET_WORKER_CONFIG){
+            this.app.setWorkerConfig(this.app.worker_key, data);
+        }else if(action == MC.cluster.master.PAUSE_WORKER){
+            if(data !== true){
+                data = false;
+            }
+            this.app.pauseWorker(this.app.worker_key, data);
         }
     },
 
@@ -113,16 +122,45 @@ module.exports = cls.Class.extend({
         }
     },
 
-    getAllWorkersData: function(callback){
+    getAllWorkersData: function(callback, isAdmin){
         var done = 0;
         var self = this;
+        var toDo = _.size(self.workers);
+        if(isAdmin){
+            toDo = toDo*2;
+        }
 
         _.each(this.workers, function(worker, key) {
             self.getWorkerData(key, function(data) {
                 done++;
-                callback(key, data, done == _.size(self.workers));
+                callback(key, data, done == toDo);
             });
+            if(isAdmin){
+                self.getWorkerConfig(key, function(data) {
+                    done++;
+                    callback(key, data, done == toDo);
+                });
+            }
         });
+    },
+
+    setWorkerConfig: function(key, config) {
+        this.workers[key].send([MC.cluster.master.SET_WORKER_CONFIG, config]);
+    },
+
+    pauseWorker: function(key, pause) {
+        this.workers[key].send([MC.cluster.master.PAUSE_WORKER, pause]);
+    },
+
+    getWorkerConfig: function(key, callback){
+        if(!this.workers[key]){
+            callback({error: 'Worker not found'});
+            return;
+        }
+        if(!this.registeredCallback(key, MC.cluster.client.SEND_WORKER_CONFIG, 0)){
+            this.workers[key].send([MC.cluster.master.GET_WORKER_CONFIG]);
+        }
+        this.registerCallback(key, MC.cluster.client.SEND_WORKER_CONFIG, 0, callback);
     },
 
     getWorkerData: function(key, callback){

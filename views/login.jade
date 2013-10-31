@@ -1,0 +1,15 @@
+extends layout
+
+block content
+  .page-header
+      h1 Admin interface
+          small  Login
+
+  form.form-horizontal(role='form',action='/admin',method='post')
+      .form-group
+          label.col-sm-2.control-label(for='admin_password') Password
+          .col-sm-10
+              input#admin_password.form-control(name='admin_password',type='password',placeholder='Enter password for the admin interface')
+      .form-group
+          .col-sm-offset-2.col-sm-10
+              button.btn.btn-primary(type='submit') Login

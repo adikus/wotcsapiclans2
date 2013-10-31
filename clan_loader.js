@@ -30,6 +30,7 @@ module.exports = Worker.extend({
 
         this.priorityRequests = [];
         this.interval = null;
+        this.paused = false;
         this.stopping = false;
         this.waitTime = 2000;
         this.requestID = 0;
@@ -73,6 +74,7 @@ module.exports = Worker.extend({
 
     getCurrentState: function(){
         var ret = {key: this.config.key, cycleData: this.cycleData};
+        ret.paused = this.paused;
         ret.speeds = {currentSpeed: this.getCurrentSpeed(), averageSpeed: this.getAverageSpeed(), duration: this.getCurrentDuration()};
         ret.cycleData.errorRate = this.getErrorRate();
         ret.cycleTimes = {completion: this.getCompletion(), duration: this.getCycleDuration(true), remainingTime: this.getCycleRemainingTime(true)};
@@ -110,8 +112,11 @@ module.exports = Worker.extend({
         return this.config;
     },
 
-    setConfig: function(name, value){
-        this.config[name] = value;
+    setConfig: function(config){
+        var self = this;
+        _.each(config, function(value, name){
+            self.config[name] = value;
+        });
     },
 
     addClan: function(id, callback){
@@ -154,6 +159,28 @@ module.exports = Worker.extend({
         this.ready = false;
     },
 
+    pause: function(pause){
+        if(pause && !this.paused){
+            clearInterval(this.interval);
+            this.interval = null;
+            this.paused = true;
+            console.log('Worker stopped.',this.key || this.config.key);
+            if(this.update_callback){
+                var ret = this.getCurrentState();
+                ret.actionData = {code: MC.ws.server.WORKER_STOPPED};
+                this.update_callback(ret);
+            }
+        }else if(!pause && this.paused){
+            this.start();
+            this.paused = false;
+            if(this.update_callback){
+                var ret = this.getCurrentState();
+                ret.actionData = {code: MC.ws.server.WORKER_STARTED};
+                this.update_callback(ret);
+            }
+        }
+    },
+
     get10LastRequests: function() {
         var i = this.requestID-1;
         while( i > 0 && !this.lastRequests[i].end){
@@ -171,7 +198,7 @@ module.exports = Worker.extend({
 
     getCurrentSpeed: function() {
         var last10 = this.get10LastRequests();
-        if(last10.length == 0){
+        if(last10.length == 0 || this.paused){
             return 0;
         }
         var totalCount = _.reduce(last10, function(memo, req){ return memo + req.count; }, 0);
@@ -180,6 +207,9 @@ module.exports = Worker.extend({
     },
 
     getAverageSpeed: function() {
+        if(this.paused){
+            return 0;
+        }
         if(this.cycleData.finishedRequests == 0)return 0;
         var duration = (new Date()).getTime() - this.cycleData.start.getTime();
         return Math.round(this.cycleData.finishedClans / duration * 1000 * 100) / 100;

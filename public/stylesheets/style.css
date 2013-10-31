@@ -5914,3 +5914,8 @@ td.visible-print {
   background-color: #f2dede;
   border-color: #eed3d7;
 }
+input.badge.editable {
+  display: inline-block;
+  width: 50px;
+  border: none;
+}

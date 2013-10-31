@@ -78,18 +78,54 @@ module.exports = cls.Class.extend({
         }
     },
 
-    getAllWorkersData: function (callback) {
+    getAllWorkersData: function (callback, isAdmin) {
         var ret = {};
         if(this.worker_key){
             ret[this.worker_key] = this.workers[this.worker_key].getCurrentState();
             ret[this.worker_key].lastRequests = this.workers[this.worker_key].lastRequests;
+            ret[this.worker_key].config = this.workers[this.worker_key].getConfig();
         }
         this.messenger.getAllWorkersData(function(key, data, done){
-            ret[key] = data;
+            if(data.clansInRequest){
+                if(!ret[key]){
+                    ret[key] = {};
+                }
+                ret[key].config = data;
+            }else{
+                if(ret[key] && ret[key].config){
+                    data.config = ret[key].config;
+                }
+                ret[key] = data;
+            }
             if(done){
                 callback(ret);
             }
-        });
+        }, isAdmin);
+    },
+
+    setWorkerConfig: function (key, config){
+        if(this.workers[key]){
+            this.workers[key].setConfig(config);
+        }else{
+            this.messenger.setWorkerConfig(key, config);
+        }
+    },
+
+    pauseWorker: function (key, pause){
+        if(this.workers[key]){
+            this.workers[key].pause(pause);
+        }else{
+            this.messenger.pauseWorker(key, pause);
+        }
+    },
+
+    getWorkerConfig: function (key, callback){
+        if(this.workers[key]){
+            var ret = this.workers[key].getConfig();
+            callback(ret);
+        }else{
+            this.messenger.getWorkerConfig(key, callback);
+        }
     },
 
     getWorkerData: function (key, callback){

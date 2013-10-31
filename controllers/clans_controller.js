@@ -4,11 +4,11 @@ var _ = require('underscore');
 
 module.exports = BaseController.extend({
 
-    index: function () {
+    index: function (req, res) {
         var self = this;
-        var id = parseInt(this.req.params.id,10);
+        var id = parseInt(req.params.id,10);
         if(isNaN(id)){
-            this.res.json({status: 'error', error:"Bad clan id"});
+            res.json({status: 'error', error:"Bad clan id"});
             return;
         }
 
@@ -16,25 +16,22 @@ module.exports = BaseController.extend({
             var members = _.map(players, function(player) {
                 return _.pick(player, 'id', 'name');
             });
-            if(clan.getData){
-                clan = clan.getData();
-            }
-            self.res.json({status: 'ok', clan_id: id, clan: clan, members: members});
+            res.json({status: 'ok', clan_id: id, clan: clan, members: members});
         };
 
         this.app.Clans.find(id, function(err, clan){
             if(clan){
                 if(self.players){
-                    finish(clan, self.players);
+                    finish(clan.getData(), self.players);
                 }else{
-                    self.clan = clan;
+                    self.clan = clan.getData();
                 }
             }else{
                 self.app.addClan(id, function(data){
                     if(!data.error){
                         finish(data.clan, data.players);
                     }else{
-                        self.res.json({status: 'error', clan_id: id, error: data.error});
+                        res.json({status: 'error', clan_id: id, error: data.error});
                     }
                 });
             }
@@ -49,11 +46,10 @@ module.exports = BaseController.extend({
         });
     },
 
-    changes: function () {
-        var id = parseInt(this.req.params.id);
-        var self = this;
+    changes: function (req, res) {
+        var id = parseInt(req.params.id);
         this.app.MemberChanges.where({c: id}, function(err, changes) {
-            self.res.json({status: 'ok', clan_id: id, changes: _.map(changes, function(change) {
+            res.json({status: 'ok', clan_id: id, changes: _.map(changes, function(change) {
                 return change.getData();
             })});
         });

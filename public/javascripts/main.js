@@ -9,7 +9,9 @@ var ServerMessages = {
     CYCLE_DATA: 4,
     CYCLE_START: 5,
     MEMBER_JOINED: 6,
-    MEMBER_LEFT: 7
+    MEMBER_LEFT: 7,
+    WORKER_STOPPED: 8,
+    WORKER_STARTED: 9
 };
 
 $(function(){
@@ -102,12 +104,44 @@ $(function(){
             }else if(action == ServerMessages.CYCLE_START){
                 $('#'+key+'_request_list').html('');
             }else if(action == ServerMessages.MEMBER_JOINED || action == ServerMessages.MEMBER_LEFT){
-                $('#'+key+'_event_list').prepend(getTemplate('event_template',{key: key, event: data.actionData, ch: action == ServerMessages.MEMBER_JOINED?1:-1}));
+                if($('#'+key+'_event_list').length > 0){
+                    $('#'+key+'_event_list').prepend(getTemplate('event_template',{key: key, event: data.actionData, ch: action == ServerMessages.MEMBER_JOINED?1:-1}));
+                }
+            }else if(action == ServerMessages.WORKER_STOPPED){
+                $('#'+key+'_start_stop').html('Start');
+                $('#'+key+'_start_stop').addClass('paused');
+            }else if(action == ServerMessages.WORKER_STARTED){
+                $('#'+key+'_start_stop').html('Stop');
+                $('#'+key+'_start_stop').removeClass('paused');
             }
         };
     }else{
         console.log('Did not start connection with server.');
     }
+
+    $('[id$="_config_submit"]').click(function() {
+        var key = $(this).attr('id').split('_')[0];
+        var parent = $(this).parents('.list-group');
+        var config = {
+            key: key,
+            config: {
+                maxActiveRequests: parent.find('[id$="_max_active_requests"]').val(),
+                clansInRequest: parent.find('[id$="_clans_in_request"]').val(),
+                waitMultiplier: parent.find('[id$="_wait_multiplier"]').val()
+            }
+        };
+        ws.send(JSON.stringify([APIData.secret, config]));
+    });
+
+    $('[id$="_start_stop"]').click(function() {
+        var key = $(this).attr('id').split('_')[0];
+        var pause = !$(this).hasClass('paused');
+        var data = {
+            key: key,
+            pause: pause
+        };
+        ws.send(JSON.stringify([APIData.secret, data]));
+    });
 });
 
 function parseRequestTimes(req) {
