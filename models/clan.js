@@ -92,6 +92,7 @@ module.exports = BaseModel.extend({
     },
 
     addPlayer: function(id, name, player) {
+        id = parseInt(id, 10);
         var listOfAttributes = [];
         if(player){
             player.clan_id = this.id;
@@ -106,7 +107,7 @@ module.exports = BaseModel.extend({
             listOfAttributes = ['clan_id','name','status'];
         }
         if(this.members.length > 0){
-            console.log('Add player to clan', this.tag, ':', name);
+            console.log('Add player to clan', this.tag, ':', name, id);
             if(this.app.update_callback){
                 this.app.update_callback({key: this.app.worker_key, actionData: {
                     code: MC.ws.server.MEMBER_JOINED,
@@ -115,13 +116,13 @@ module.exports = BaseModel.extend({
                     clan: {name: this.name, tag: this.tag, id: this.id, region: shared.TranslatedRegion[shared.getRegion(this.id)]}
                 }});
             }
-            //TODO add member change
+            this.saveMemberChange(id, 1);
         }
         player.save(listOfAttributes);
     },
 
     removePlayer: function(player) {
-        console.log('Remove player from clan', this.tag, ':', player.name);
+        console.log('Remove player from clan', this.tag, ':', player.name, player.id);
         if(this.app.update_callback){
             this.app.update_callback({key: this.app.worker_key, actionData: {
                 code: MC.ws.server.MEMBER_LEFT,
@@ -132,7 +133,24 @@ module.exports = BaseModel.extend({
         }
         player.clan_id = 0;
         player.save(['clan_id']);
-        //TODO add member change
+        this.saveMemberChange(player.id, -1);
+    },
+
+    saveMemberChange: function(id, ch) {
+        var change = this.app.MemberChanges.new({p: id, c: this.id, ch: ch, u: new Date()});
+        this.app.MemberChanges.where({p:id, c:this.id}, {order: {u: -1}, limit: 1}, function(err, changes) {
+            var lastChange = changes[0];
+            if(lastChange){
+                var days = (change.u.getTime() - lastChange.u.getTime())/(1000*3600*24);
+                if(days > 3){
+                    change.save(['p','c','ch','u']);
+                }else{
+                    console.log('Member change already exists for player:',change.p);
+                }
+            }else{
+                change.save(['p','c','ch','u']);
+            }
+        });
     }
 
 });

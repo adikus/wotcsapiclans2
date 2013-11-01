@@ -29,8 +29,8 @@ module.exports = cls.Class.extend({
         var self = this;
 
         this.db.databases.PG.builder.select().from(this.tableName).where("id = ?",id).limit(1).exec(function(err, result){
-            var clan = result.rows.length > 0 ? self.new(result.rows[0], true) : null;
-            callback(err, clan);
+            var record = result.rows.length > 0 ? self.new(result.rows[0], true) : null;
+            callback(err, record);
         });
     },
 

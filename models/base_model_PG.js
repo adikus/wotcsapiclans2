@@ -10,6 +10,9 @@ module.exports = cls.Class.extend({
         _.each(params, function(value, key) {
             self[key] = value;
         });
+        if(this.id){
+            this.id = parseInt(this.id,10);
+        }
     },
 
     hasChanged: function(fields) {
@@ -28,7 +31,9 @@ module.exports = cls.Class.extend({
         var self = this;
         if(this.newRecord){
             query = this.db.databases.PG.builder.insert({replaceSingleQuotes: true}).into(this.tableName);
-            fields.push('id');
+            if(this.id){
+                fields.push('id');
+            }
             if(this.timestamps){
                 fields.push('created_at');
                 self.created_at = (new Date()).toISOString();

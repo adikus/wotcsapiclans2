@@ -17,21 +17,41 @@ module.exports = cls.Class.extend({
         this.constructor = constructors[this.name];
     },
 
-    where: function(where, callback) {
+    where: function(where, options, callback) {
         var self = this;
         var ret = [];
 
-        var stream = this.collection.find(where).stream();
+        var cursor = this.collection.find(where);
+        if(_.isFunction(options) && !callback){
+            callback = options;
+        }else if(options.order){
+            cursor.sort(options.order);
+        }else if(options.limit){
+            cursor.limit(options.limit);
+        }
+        var stream = cursor.stream();
         stream.on("data", function(item) {
-            ret.push(self.new(item));
+            ret.push(self.new(item, true));
         });
         stream.on("end", function(err) {
             callback(err, ret);
         });
     },
 
-    new: function (params) {
-        return new this.constructor(this.db, this.app, params);
+    find: function(id, callback){
+        var self = this;
+
+        this.collection.findOne({_id: id}, function(err, result){
+            var record = result ? self.new(result, true) : null;
+            callback(err, record);
+        });
+    },
+
+    new: function (params, notNew) {
+        var record = new this.constructor(this.collection, this.app, params);
+        record.newRecord = !notNew;
+        record.oldParams = notNew ? params : null;
+        return record;
     }
 
 });
