@@ -1,56 +1,10 @@
-var Server = require('./server');
-var App = require('./app');
-var DB = require('./db');
-var cluster = require('cluster');
-var Messenger = require("./messenger");
+var App = require('wotcs-api-system').App;
+var Queue = require('./queue');
+var config = require('./config');
 
-function main(){
-    var db = new DB();
-    var app;
-    var messenger;
+var app = new App(__dirname, config);
 
-    db.onReady(function(){
-        if (cluster.isMaster){
-            app = new App(true);
-            messenger = new Messenger(true);
-
-            app.dependencies({
-                db: db,
-                messenger: messenger
-            });
-            app.loadModels();
-            messenger.dependencies({
-                app: app
-            });
-            app.addWorker('NA');
-
-            messenger.setupWorker(cluster.fork(), 'EU1');
-            messenger.setupWorker(cluster.fork(), 'EU2');
-            messenger.setupWorker(cluster.fork(), 'RU-SEA-KR');
-            messenger.onWorkersReady(function(){
-                var server = new Server();
-                server.dependencies({
-                    app: app
-                });
-                server.onReady(function(){
-                    app.dependencies({
-                        server: server
-                    });
-                });
-            });
-        }else{
-            app = new App(false);
-            messenger = new Messenger(false);
-            app.dependencies({
-                db: db,
-                messenger: messenger
-            });
-            app.loadModels();
-            messenger.dependencies({
-                app: app
-            });
-        }
-    });
+if (app.isMaster){
+    var queue = new Queue();
+    app.setupWorkers(4, 'clan_loader', queue);
 }
-
-main();

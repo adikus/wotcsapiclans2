@@ -1,10 +1,9 @@
-var BaseCollection = require('./base_collection_PG');
+var BaseCollection = require('wotcs-api-system').BaseCollection('PG');
 var _ = require('underscore');
 
 module.exports = BaseCollection.extend({
 
-    name: 'Player',
-    tableName: 'players',
+    dbName: 'MainDB',
 
     inClan: function (id, callback) {
         this.where(['clan_id = ?', id], callback);

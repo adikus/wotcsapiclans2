@@ -1,161 +1,160 @@
-var ClientMessages = {
-    SYNC: 0
-};
-var ServerMessages = {
-    SYNC: 0,
-    ADD_REQ: 1,
-    FINISH_REQ: 2,
-    PAST_REQS: 3,
-    CYCLE_DATA: 4,
-    CYCLE_START: 5,
-    MEMBER_JOINED: 6,
-    MEMBER_LEFT: 7,
-    WORKER_STOPPED: 8,
-    WORKER_STARTED: 9
-};
-
 $(function(){
+
     if(window.APIData){
-        APIData.lastRequests = {'EU1':{},'EU2':{},'NA':{},'RU-SEA-KR':{}};
+        APIData.requests = {};
 
         setInterval(function(){
-            for(var key in APIData.lastRequests){
-                for(var i in APIData.lastRequests[key]){
-                    if(!APIData.lastRequests[key][i].duration){
-                        var duration = (new Date()).getTime() - (new Date(APIData.lastRequests[key][i].start)).getTime() + ' ms';
-                        $('#'+key+'_req_'+i+' .badge').html(duration);
-                    }
+            for(var i in APIData.requests){
+                if(!APIData.requests[i].duration){
+                    var req = APIData.requests[i];
+                    var duration = (new Date()).getTime() - (new Date(req.start)).getTime() + ' ms';
+                    $('#'+req.w+'_req_'+i+' .badge').html(duration);
                 }
             }
         },100);
 
-        var host = location.origin.replace(/^http/, 'ws');
-        var ws = new WebSocket(host);
+        var workerSub = APIData.worker == 'all' ? '*' : APIData.worker+'.*';
+        window.system = new WOTcsSystem(['subscribe', 'workers.'+workerSub, 'queue.*']);
 
-        ws.onopen = function(){
-            ws.send(JSON.stringify([ClientMessages.SYNC, APIData.key]));
-            APIData.sync = {start: new Date()};
-        }
-
-        ws.onmessage = function (event) {
-            var decompressedData = LZString.decompressFromUTF16(event.data);
-            var msg = JSON.parse(decompressedData);
-            var data = msg[1] || {};
-            var action = msg[0];
-            var key = data.key;
-
-            if(data.error){
-                console.log(data.error);
-                return;
+        system.onMessage(/workers\.(\d+?)\.start-request/, function(match, data){
+            var selector = APIData.worker == 'all' ? 'all' : match[1];
+            var ID = data.task.ID;
+            var req = parseRequestTimes(data);
+            req.w = selector;
+            APIData.requests[ID] = req;
+            var $requestList = $('#'+selector+'_request_list');
+            $requestList.prepend(getTemplate('request_template',{worker: selector, req: req, ID: ID}));
+            $requestList.find('.list-group-item').slice(100).remove();
+        });
+        system.onMessage(/workers\.(\d+?)\.finish-request/, function(match, data){
+            var selector = APIData.worker == 'all' ? 'all' : match[1];
+            var ID = data.task.ID;
+            var req = parseRequestTimes(data);
+            req.w = selector;
+            APIData.requests[ID] = req;
+            var $req = $('#'+selector+'_req_'+ID);
+            $req.removeClass('active').addClass('finished')
+                .find('.badge').html(req.duration+' ms');
+            if(req.error){
+                $req.addClass('list-group-item-danger')
+                    .find('i').html(' - '+req.error);
             }
+        });
+        system.onMessage(/queue\.update/, function(match, data){
+            $('#queue_total').html(data.totalCount);
+            $('#queue_done').html(data.doneCount);
+            $('#queue_pending').html(data.pending);
 
-            if(action == ServerMessages.SYNC){
-                APIData.sync.end = new Date();
-                APIData.sync.duration = APIData.sync.end.getTime() - APIData.sync.start.getTime();
-                APIData.sync.midpoint = new Date((APIData.sync.end.getTime() + APIData.sync.start.getTime())/2);
-                APIData.sync.server = new Date(data);
-                APIData.sync.offset = APIData.sync.server.getTime() - APIData.sync.midpoint.getTime();
-                console.log(APIData.sync);
+            var completion = data.doneCount / data.totalCount * 100;
+            var pendingCompletion = data.pending / data.totalCount * 100;
+            var $progress = $('#queue_progress');
 
-                return;
-            }
+            $progress.find('.progress-bar-success').attr('style', 'width:' + completion + '%');
+            $progress.find('.progress-bar-warning').attr('style', 'width:' + pendingCompletion + '%');
 
-            if(data.speeds){
-                $('#'+key+'_current_speed').html(data.speeds.currentSpeed + ' clans/s');
-                $('#'+key+'_average_speed').html(data.speeds.averageSpeed + ' clans/s');
-                $('#'+key+'_current_duration').html(data.speeds.duration + ' ms');
-            }
+            var duration = (new Date()).getTime() - (new Date(data.start)).getTime();
+            var speed = data.doneCount/duration*1000;
+            var remaining = data.totalCount - data.doneCount;
+            var remainingSeconds = Math.round(remaining/speed);
+            var remainingMinutes = Math.floor(remainingSeconds/60);
+            var time = remainingMinutes > 0 ? remainingMinutes+' m ' : '';
+            $('#queue_remaining_time').html(time+remainingSeconds%60+' s');
+        });
+        system.onMessage(/workers\.(\d+?)\.update/, function(match, data){
+            var worker = match[1];
+            var selector = APIData.worker == 'all' ? 'all' : worker;
+            APIData.workers[worker].stats.finishedRequests = data.stats.finishedRequests;
+            APIData.workers[worker].stats.finishedClans = data.stats.finishedClans;
+            APIData.workers[worker].stats.errorRequests = data.stats.errorRequests;
 
-            if(data.cycleTimes){
-                $('#'+key+'_running_time').html(data.cycleTimes.duration);
-                $('#'+key+'_remaining_time').html(data.cycleTimes.remainingTime);
-                $('#'+key+'_completion').html(data.cycleTimes.completion + ' %');
-                $('#'+key+'_progress .progress-bar').attr('style', 'width:' + data.cycleTimes.completion + '%');
-            }
+            APIData.workers.all.stats.finishedRequests = 0;
+            APIData.workers.all.stats.finishedClans = 0;
+            APIData.workers.all.stats.errorRequests = 0;
 
-            if(data.cycleData){
-                $('#'+key+'_finished_requests').html(data.cycleData.finishedRequests);
-                $('#'+key+'_error_requests').html(data.cycleData.errorRequests);
-                $('#'+key+'_error_rate').html(data.cycleData.errorRate + ' %');
-            }
-
-            if(action == ServerMessages.FINISH_REQ){
-                var ID = data.actionData.id;
-                var req = parseRequestTimes(data.actionData.req);
-                APIData.lastRequests[key][ID] = req;
-                $('#'+key+'_req_'+ID+' .badge').html(req.duration+' ms');
-                $('#'+key+'_req_'+ID).removeClass('active').addClass('finished');
-                if(data.actionData.error){
-                    $('#'+key+'_req_'+ID).addClass('list-group-item-danger');
-                    $('#'+key+'_req_'+ID+' i').html(' - '+req.error);
+            for(var i in APIData.workers) {
+                if(i != 'all'){
+                    APIData.workers.all.stats.finishedRequests += APIData.workers[i].stats.finishedRequests;
+                    APIData.workers.all.stats.finishedClans += APIData.workers[i].stats.finishedClans;
+                    APIData.workers.all.stats.errorRequests += APIData.workers[i].stats.errorRequests;
                 }
-            }else if(action == ServerMessages.ADD_REQ){
-                var ID = data.actionData.id;
-                var req = parseRequestTimes(data.actionData.req);
-                APIData.lastRequests[key][ID] = req;
-                $('#'+key+'_request_list').prepend(getTemplate('request_template',{key: key, req: req, ID: ID}));
-            }else if(action == ServerMessages.PAST_REQS){
-                $('#'+key+'_request_list').html('');;
-                for(var i in data.lastRequests){
-                    var req = parseRequestTimes(data.lastRequests[i]);
-                    APIData.lastRequests[key][i] = req;
-                    $('#'+key+'_request_list').prepend(getTemplate('request_template',{key: key, req: req, ID: i}));
-                }
-            }else if(action == ServerMessages.CYCLE_START){
-                $('#'+key+'_request_list').html('');
-            }else if(action == ServerMessages.MEMBER_JOINED || action == ServerMessages.MEMBER_LEFT){
-                if($('#'+key+'_event_list').length > 0){
-                    $('#'+key+'_event_list').prepend(getTemplate('event_template',{key: key, event: data.actionData, ch: action == ServerMessages.MEMBER_JOINED?1:-1}));
-                }
-            }else if(action == ServerMessages.WORKER_STOPPED){
-                $('#'+key+'_start_stop').html('Start');
-                $('#'+key+'_start_stop').addClass('paused');
-            }else if(action == ServerMessages.WORKER_STARTED){
-                $('#'+key+'_start_stop').html('Stop');
-                $('#'+key+'_start_stop').removeClass('paused');
             }
-        };
-    }else{
-        console.log('Did not start connection with server.');
+
+            $('#'+selector+'_finished_clans').html(APIData.workers.all.stats.finishedClans);
+            $('#'+selector+'_finished_requests').html(APIData.workers.all.stats.finishedRequests);
+            $('#'+selector+'_error_requests').html(APIData.workers.all.stats.errorRequests);
+
+            var finishedClans = APIData.workers.all.stats.finishedClans;
+            setTimeout(function(){
+                var speed = (APIData.workers.all.stats.finishedClans - finishedClans)/10;
+                $('#'+selector+'_speed').html(Math.round(speed*100)/100+' clans/s');
+            },10000);
+        });
+        system.onMessage(/workers\.(\d+?)\.clans\.(\d+?)\.add-player/, function(match, data){
+            var selector = APIData.worker == 'all' ? 'all' : match[1];
+            var $eventList = $('#'+selector+'_event_list');
+            if($eventList.length > 0){
+                $eventList.prepend(getTemplate('event_template',{worker: selector, event: data, ch: 1}));
+                $eventList.find('.list-group-item').slice(100).remove();
+            }
+        });
+        system.onMessage(/workers\.(\d+?)\.clans\.(\d+?)\.remove-player/, function(match, data){
+            var selector = APIData.worker == 'all' ? 'all' : match[1];
+            var $eventList = $('#'+selector+'_event_list');
+            if($eventList.length > 0){
+                $eventList.prepend(getTemplate('event_template',{worker: selector, event: data, ch: -1}));
+                $eventList.find('.list-group-item').slice(100).remove();
+            }
+        });
+        system.onMessage(/workers\.(\d+?)\.pause/, function(match){
+            var worker = match[1];
+            $('#'+worker+'_start_stop').html('Start').addClass('paused');
+        });
+        system.onMessage(/workers\.(\d+?)\.start/, function(match){
+            var worker = match[1];
+            $('#'+worker+'_start_stop').html('Stop').removeClass('paused');
+        });
+        system.onMessage("execute", function(worker, method){
+            if(method == 'setConfig'){
+                $('#'+worker+'_config_submit').html('Saved');
+            }
+        });
+
     }
 
     $('[id$="_config_submit"]').click(function() {
-        var key = $(this).attr('id').split('_')[0];
-        var parent = $(this).parents('.list-group');
-        var config = {
-            key: key,
-            config: {
-                maxActiveRequests: parent.find('[id$="_max_active_requests"]').val(),
-                clansInRequest: parent.find('[id$="_clans_in_request"]').val(),
-                waitMultiplier: parent.find('[id$="_wait_multiplier"]').val()
-            }
-        };
-        ws.send(JSON.stringify([APIData.secret, config]));
+        var worker = $(this).attr('id').split('_')[0];
+        var $parent = $(this).parents('.list-group');
+        var config = {};
+        $parent.find('.config input').each(function(){
+            config[$(this).attr('id').split('_')[1]] = $(this).val();
+        });
+        system.send(['execute',worker,'setConfig',config]);
+    }).each(function(){
+        var $button = $(this);
+        $(this).parents('.list-group').find('input').change(function(){
+            $button.html('Save');
+        });
     });
 
     $('[id$="_start_stop"]').click(function() {
-        var key = $(this).attr('id').split('_')[0];
+        var worker = $(this).attr('id').split('_')[0];
         var pause = !$(this).hasClass('paused');
-        var data = {
-            key: key,
-            pause: pause
-        };
-        ws.send(JSON.stringify([APIData.secret, data]));
+        system.send(['execute',worker,'pause',pause]);
     });
 });
 
 function parseRequestTimes(req) {
     req.start = new Date(req.start);
-    if(APIData.sync.offset)req.start = adjustTime(req.start);
+    if(system.sync.offset)req.start = adjustTime(req.start);
     if(req.end){
         req.end = new Date(req.end);
-        if(APIData.sync.offset)req.end = adjustTime(req.end);
+        if(system.sync.offset)req.end = adjustTime(req.end);
     }
     return req;
 }
 
 function adjustTime(time){
-    time.setTime(time.getTime() - APIData.sync.offset);
+    time.setTime(time.getTime() - system.sync.offset);
     return time;
 }
 

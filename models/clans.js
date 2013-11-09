@@ -1,24 +1,25 @@
-var BaseCollection = require('./base_collection_PG');
+var BaseCollection = require('wotcs-api-system').BaseCollection('PG');
 var _ = require('underscore');
+var Regions = require('../shared/regions');
 
 module.exports = BaseCollection.extend({
 
-    name: 'Clan',
-    tableName: 'clans',
+    dbName: 'MainDB',
 
-    whereIDsBetween: function( range, callback ) {
-        var where = [];
-        if(!_.isArray(range[0])){
-            range = [range];
-        }
-        where[0] = _.map(range, function() {
-            return "(id >= ? AND id < ?)";
-        }).join(' OR ');
-        _.each(range, function(r){
-            where.push(r[0], r[1]);
-        });
+    inRegion: function() {
+        var args = _.toArray(arguments);
+        var callback = args.pop();
+        var region = args.shift();
+        var options = args.pop();
+        var bounds = Regions.bounds[region];
+        var where = ["id > ? AND id < ?",bounds.min, bounds.max];
+        this.where(where, options, callback);
+    },
 
-        this.where(where, {order: 'id'}, callback);
+    countInRegion: function( region, callback ) {
+        var bounds = Regions.bounds[region];
+        var where = ["id > ? AND id < ?",bounds.min, bounds.max];
+        this.count(where, callback);
     }
 
 });

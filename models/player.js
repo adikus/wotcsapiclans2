@@ -1,4 +1,4 @@
-var BaseModel = require('./base_model_PG');
+var BaseModel = require('wotcs-api-system').BaseModel('PG');
 var _ = require('underscore');
 
 module.exports = BaseModel.extend({

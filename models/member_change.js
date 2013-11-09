@@ -1,4 +1,4 @@
-var BaseModel = require('./base_model_Mongo');
+var BaseModel = require('wotcs-api-system').BaseModel('Mongo');
 
 module.exports = BaseModel.extend({
 

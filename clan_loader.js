@@ -1,110 +1,107 @@
-var Worker = require("./worker_base");
+var Eventer = require('wotcs-api-system').Eventer;
 var _ = require("underscore");
 var Request = require("./request");
-var MC = require("./message_codes");
-var squel = require("squel");
-var shared = require("./shared");
+var Regions = require('./shared/regions');
 
-module.exports = Worker.extend({
-    init: function(key){
+module.exports = Eventer.extend({
+    init: function(){
         this.config = {
-            maxActiveRequests: 2,
-            clansInRequest: 50,
-            waitMultiplier: 1.2,
-            key: key
+            maxActiveRequests: 4,
+            waitMultiplier: 1.05,
+            minWaitTime: 650
         };
 
-        this.cycleData = {
-            activeRequests: 0,
+        this.stats = {
             finishedRequests: 0,
             errorRequests: 0,
             finishedClans: 0,
-            totalClans: 0,
-            start: null
+            start: new Date()
         };
 
-        this.callbacks = {};
-
-        this.lastRequests = [];
-        this.clansBeingLoaded = {};
-
+        this.newTasks = [];
+        this.recentRequest = [];
+        this.currentRequests = {};
         this.priorityRequests = [];
         this.interval = null;
         this.paused = false;
-        this.stopping = false;
-        this.waitTime = 2000;
         this.requestID = 0;
 
-        if(this.config.key == 'EU1'){
-            this.clanIDRange = [500000000,500016375];
+        this.waitTime = 2000;
+    },
+
+    start: function(silent) {
+        var self = this;
+        this.paused = false;
+        if(!silent){
+            console.log('Worker started.');
+            this.emit('start', true);
         }
-        if(this.config.key == 'EU2'){
-            this.clanIDRange = [500016375,1000000000];
-        }
-        if(this.config.key == 'NA'){
-            this.config.maxActiveRequests = 4;
-            this.config.clansInRequest = 25;
-            this.clanIDRange = [1000000000,2000000000];
-        }
-        if(this.config.key == 'RU-SEA-KR'){
-            this.config.maxActiveRequests = 4;
-            this.config.clansInRequest = 25;
-            this.clanIDRange = [[0,500000000],[2000000000,2500000000],[3000000000,4000000000]];
+        this.interval = setInterval(function() {self.step(); }, 10);
+    },
+
+    pause: function(pause, silent){
+        if(pause && !this.paused){
+            clearInterval(this.interval);
+            this.paused = true;
+            this.silentPause = silent;
+            if(!silent){
+                console.log('Worker paused.');
+                this.emit('pause', true);
+            }
+        }else if(!pause && this.paused){
+            this.start(silent);
         }
     },
 
-    loadData: function() {
+    setModels: function(models) {
+        this.models = models;
+        _.each(this.models,  function(model, name) {
+            this[name] = model;
+        },this);
+    },
+
+    setTask: function(task) {
         var self = this;
 
-        this.app.Clans.whereIDsBetween(this.clanIDRange, function(err, clans) {
-            self.clans = clans;
-            self.cycleData.totalClans = clans.length;
-            self.ready = true;
-            if(self.ready_callback){
-                self.ready_callback();
+        var taskID = _.keys(task)[0];
+        task = task[taskID];
+        this.Clans.inRegion(task.region,{order: 'id',limit: [task.skip, task.limit]}, function(err, clans) {
+            var newTask = {
+                ID: taskID,
+                task: task,
+                clans: clans
+            };
+            var count = clans.length;
+            var done = 0;
+            _.each(clans, function(clan){
+                self.once('clans.'+clan.id+'.updated', function(){
+                    done++;
+                    if(done == count){
+                        self.emit('finish-task', taskID);
+                    }
+                });
+            });
+            setTimeout(function() {
+                if(done != count){
+                    self.emit('fail-task', taskID, true);
+                }
+            },60000);
+            self.newTasks.push(newTask);
+            if(self.paused){
+                self.pause(false, true);
             }
-            if(self.update_callback){
-                var ret = self.getCurrentState();
-                ret.actionData = {code: MC.ws.server.CYCLE_START};
-                self.update_callback(ret);
+            if(self.interval === null){
+                self.start();
             }
         });
     },
 
-    getCurrentState: function(){
-        var ret = {key: this.config.key, cycleData: this.cycleData};
-        ret.paused = this.paused;
-        ret.speeds = {currentSpeed: this.getCurrentSpeed(), averageSpeed: this.getAverageSpeed(), duration: this.getCurrentDuration()};
-        ret.cycleData.errorRate = this.getErrorRate();
-        ret.cycleTimes = {completion: this.getCompletion(), duration: this.getCycleDuration(true), remainingTime: this.getCycleRemainingTime(true)};
+    getCurrentState: function(options){
+        var ret = {paused: this.paused && !this.silentPause, stats: this.stats};
+        if(options && options.config){
+            ret.config = this.getConfig();
+        }
         return ret;
-    },
-
-    getCycleDuration: function(format) {
-        if(!this.cycleData.start)return 0;
-        var ret = (new Date()).getTime() - this.cycleData.start.getTime();
-        if(format){
-            var minutes = Math.floor( ret / 1000 / 60 );
-            var seconds = Math.floor( ret / 1000 ) % 60;
-            return minutes+' m '+seconds+' s';
-        }else{
-            return ret;
-        }
-    },
-
-    getCycleRemainingTime: function(format) {
-        var remainingClans = this.cycleData.totalClans - this.cycleData.finishedClans;
-        if(this.cycleData.finishedRequests == 0)ret = 0;
-        else{
-            var ret = remainingClans / this.getAverageSpeed();
-        }
-        if(format){
-            var minutes = Math.floor( ret / 60 );
-            var seconds = Math.floor( ret ) % 60;
-            return minutes+' m '+seconds+' s';
-        }else{
-            return ret;
-        }
     },
 
     getConfig: function() {
@@ -116,217 +113,92 @@ module.exports = Worker.extend({
         _.each(config, function(value, name){
             self.config[name] = value;
         });
+        return this.config;
     },
 
     addClan: function(id, callback){
-        if(!this.registeredCallback(id)){
-            if(this.clans){
-                var clan = this.app.Clans.new({id: id, status: 0});
-                this.clans.push(clan);
-            }else{
-                callback({error: 'Loader not initialized'});
-                return;
-            }
+        if(!this.waitingFor('clans.'+id+'.updated')){
+            this.newTasks.push({
+                ID: 'a'+this.requestID++,
+                task: {region: Regions.getRegion(id)},
+                clans: [this.Clans.new({id: id, status: 0})]
+            });
         }
-        this.registerCallback(id, callback);
-    },
-
-    registeredCallback: function(id){
-        return !!this.callbacks[id];
-    },
-
-    registerCallback: function(id, callback){
-        if(!this.callbacks[id]){
-            this.callbacks[id] = [];
-        }
-        this.callbacks[id].push(callback);
-    },
-
-    executeCallbacks: function(id, data){
-        _.each(this.callbacks[id], function(callback){
-            callback(data);
+        this.once('clans.'+id+'.updated', function() {
+            var args = _.toArray(arguments);
+            var event = args.shift();
+            callback.apply(null, args);
         });
-        delete this.callbacks[id];
-    },
-
-    stop: function(force){
-        if(force || this.cycleData.activeRequests == 0){
-            clearInterval(this.interval);
-        }else{
-            this.stopping = true;
-        }
-        this.ready = false;
-    },
-
-    pause: function(pause){
-        if(pause && !this.paused){
-            clearInterval(this.interval);
-            this.interval = null;
-            this.paused = true;
-            console.log('Worker stopped.',this.key || this.config.key);
-            if(this.update_callback){
-                var ret = this.getCurrentState();
-                ret.actionData = {code: MC.ws.server.WORKER_STOPPED};
-                this.update_callback(ret);
-            }
-        }else if(!pause && this.paused){
-            this.start();
-            this.paused = false;
-            if(this.update_callback){
-                var ret = this.getCurrentState();
-                ret.actionData = {code: MC.ws.server.WORKER_STARTED};
-                this.update_callback(ret);
-            }
-        }
-    },
-
-    get10LastRequests: function() {
-        var i = this.requestID-1;
-        while( i > 0 && !this.lastRequests[i].end){
-            i--;
-        }
-        var ret = [];
-        while( i > 0 && this.lastRequests[i] && ret.length < 10){
-            if(this.lastRequests[i].duration){
-                ret.unshift(this.lastRequests[i]);
-            }
-            i--;
-        }
-        return ret;
-    },
-
-    getCurrentSpeed: function() {
-        var last10 = this.get10LastRequests();
-        if(last10.length == 0 || this.paused){
-            return 0;
-        }
-        var totalCount = _.reduce(last10, function(memo, req){ return memo + req.count; }, 0);
-        var duration = _.last(last10).end.getTime() - _.first(last10).start.getTime();
-        return Math.round(totalCount / duration * 1000 * 100) / 100;
-    },
-
-    getAverageSpeed: function() {
-        if(this.paused){
-            return 0;
-        }
-        if(this.cycleData.finishedRequests == 0)return 0;
-        var duration = (new Date()).getTime() - this.cycleData.start.getTime();
-        return Math.round(this.cycleData.finishedClans / duration * 1000 * 100) / 100;
-    },
-
-    getCurrentDuration: function() {
-        var last10 = this.get10LastRequests();
-        if(last10.length == 0){
-            return 0;
-        }
-        var totalDuration = _.reduce(last10, function(memo, req){ return memo + req.duration; }, 0);
-        return Math.round(totalDuration / last10.length * 100) / 100;
-    },
-
-    getCompletion: function() {
-        return Math.round(this.cycleData.finishedClans / this.cycleData.totalClans * 100 * 100) / 100
-    },
-
-    getErrorRate: function() {
-        if(this.cycleData.finishedRequests == 0)return 0;
-        return Math.round( this.cycleData.errorRequests / this.cycleData.finishedRequests * 100 * 100) / 100;
     },
 
     getLastRequestAt: function() {
-        return this.requestID > 0 ? this.lastRequests[this.requestID - 1].start : this.workerStart;
+        var obj = _.last(this.currentRequests) || _.last(this.recentRequest) || this.stats;
+        return obj.start;
     },
 
     step: function() {
         var sinceLastRequest = (new Date()).getTime() - this.getLastRequestAt().getTime();
 
-        if(this.cycleData.activeRequests < this.config.maxActiveRequests && sinceLastRequest > Math.max(this.waitTime,1000)){
+        if(_.size(this.currentRequests) < this.config.maxActiveRequests && sinceLastRequest > Math.max(this.waitTime,this.config.minWaitTime)){
             if(this.priorityRequests.length > 0){
                 this.priorityRequests.pop()();
                 return;
             }
-            var clanList = [];
-            var regionChain = true;
-            while(clanList.length < this.config.clansInRequest && regionChain && this.clans.length > 0){
-                var tempClan = this.clans.pop();
-                if(clanList.length == 0 || shared.getRegion(tempClan.id) == shared.getRegion(clanList[0].id)){
-                    if(tempClan.status > -1){
-                        clanList.push(tempClan);
+            if(this.newTasks.length > 0){
+                var clanList = [];
+                var task = this.newTasks.shift();
+                _.each(task.clans, function(clan){
+                    if(clan.status > -1){
+                        clanList.push(clan);
+                    }else{
+                        this.emit('clans.'+clan.id+'.updated', {
+                            clan: clan.getData(),
+                            players: []
+                        });
                     }
-                }else{
-                    regionChain = false;
+                }, this);
+                if(clanList.length > 0){
+                    this.loadClans(clanList, task);
                 }
-            }
-            if(clanList.length > 0){
-                if(this.requestID == 0){
-                    this.cycleData.start = new Date();
-                }
-                this.loadClans(clanList, this.requestID++);
             }else{
-                if(this.cycleData.activeRequests == 0){
-                    clearInterval(this.interval);
-                    this.requestID = 0;
-                    this.lastRequests = [];
-                    this.cycleData = {
-                        activeRequests: 0,
-                        finishedRequests: 0,
-                        errorRequests: 0,
-                        finishedClans: 0,
-                        totalClans: 0,
-                        start: null
-                    };
-                    this.stop();
-                    this.loadData();
-                }
+                this.pause(true, true);
+                this.emit('ready', false);
             }
         }
     },
 
-    addRequest: function(ID, clans){
-        this.lastRequests[ID] = {
+    addRequest: function(task, clans){
+        this.currentRequests[task.ID] = {
             start: new Date(),
-            count: clans.length
+            count: clans.length,
+            task: {ID: task.ID, region: task.task ? Regions.TranslatedRegion[task.task.region] : 'Task Error'}
         };
-        this.cycleData.activeRequests++;
-        var self = this;
-        this.clansBeingLoaded[ID] = {};
-        _.each(clans, function(clan) {
-            self.clansBeingLoaded[ID][clan.id] = {
-                name: clan.name,
-                tag: clan.tag
-            };
-        });
-        if(this.config.key == 'RU-SEA-KR'){
-            this.lastRequests[ID].region = shared.TranslatedRegion[shared.getRegion(clans[0].id)];
+        if(!task.task){
+            console.log(task);
         }
-
-        if(this.update_callback){
-            var ret = this.getCurrentState();
-            ret.actionData = {code: MC.ws.server.ADD_REQ, id: ID, req: this.lastRequests[ID]};
-            this.update_callback(ret);
-        }
+        this.emit('start-request', this.currentRequests[task.ID], true);
     },
 
-    finishRequest: function(ID, count, error, clans){
-        this.lastRequests[ID].end = new Date();
-        this.lastRequests[ID].duration = this.lastRequests[ID].end.getTime() - this.lastRequests[ID].start.getTime();
-        this.cycleData.finishedClans += count;
-        this.lastRequests[ID].count = count;
-        this.lastRequests[ID].error = error;
-        this.cycleData.finishedRequests += 1;
-        if(error)this.cycleData.errorRequests += 1;
-        this.cycleData.activeRequests--;
-        this.waitTime = this.lastRequests[ID].duration*this.config.waitMultiplier/this.config.maxActiveRequests;
-        if(this.stopping){
-            this.stopping = false;
-            clearInterval(this.interval);
+    finishRequest: function(ID, error){
+        if(!this.currentRequests[ID]){
+            console.log(ID, this.currentRequests);
         }
-        delete this.clansBeingLoaded[ID];
+        this.recentRequest[ID] = this.currentRequests[ID];
+        delete this.currentRequests[ID];
+        this.recentRequest[ID].end = new Date();
+        this.recentRequest[ID].duration = this.recentRequest[ID].end.getTime() - this.recentRequest[ID].start.getTime();
+        this.recentRequest[ID].error = error;
 
-        if(this.update_callback){
-            var ret = this.getCurrentState();
-            ret.actionData = {code: MC.ws.server.FINISH_REQ, id: ID, error: error, req: this.lastRequests[ID]};
-            this.update_callback(ret);
+        this.stats.finishedClans += error ? 0 : this.recentRequest[ID].count;
+        this.stats.finishedRequests += 1;
+        if(error){
+            this.stats.errorRequests += 1;
         }
+        this.emit('update', this.getCurrentState(), true);
+
+        this.waitTime = this.recentRequest[ID].duration*this.config.waitMultiplier/this.config.maxActiveRequests;
+
+        this.emit('finish-request', this.recentRequest[ID], true);
     },
 
     parseAndCheckData: function(data, IDs){
@@ -347,51 +219,76 @@ module.exports = Worker.extend({
         }
     },
 
-    splitRequestToFindBadID: function(clans){
+    splitRequestToFindBadID: function(clans, task){
         var self = this;
 
         if(clans.length > 1){
             var breakpoint = Math.floor(clans.length/2);
             this.priorityRequests.unshift(function(){
-                self.loadClans(clans.slice(0, breakpoint), self.requestID++);
+                var ID = 's'+self.requestID++;
+                self.loadClans(clans.slice(0, breakpoint), {ID: ID, task: task.task});
             });
             this.priorityRequests.unshift(function(){
-                self.loadClans(clans.slice(breakpoint), self.requestID++);
+                var ID = 's'+self.requestID++;
+                self.loadClans(clans.slice(breakpoint), {ID: ID, task: task.task});
             });
         }else{
             console.log('Bad ID', clans[0].id);
-            var data = {};
-            data[clans[0].id] = null;
-            self.app.processClans([clans[0]], data);
+            clans[0].status = -1;
+            clans[0].save();
+            this.emit('clans.'+clans[0].id+'.updated', {
+                clan: clans[0].getData(),
+                players: []
+            });
         }
     },
 
-    loadClans: function(clans, ID) {
+    loadClans: function(clans, task) {
+        var ID = task.ID;
         var self = this;
         var IDs = _.map(clans, function(clan){return clan.id});
 
-        this.addRequest(ID, clans);
+        this.addRequest(task, clans);
         var req = new Request('clan',IDs,'description_html,abbreviation,motto,name,members.account_name');
 
         req.onSuccess(function(data) {
             var parsedData = self.parseAndCheckData(data, IDs);
             if(parsedData){
-                self.finishRequest(ID, clans.length, false, clans);
-                self.app.processClans(clans, parsedData.data);
+                self.finishRequest(ID, false);
+                self.processClans(clans, parsedData.data);
             }else{
-                self.finishRequest(ID, 0, 'API Error', clans);
-                //console.log('API Error.'/*, parsed.status, IDs*/);
-                self.splitRequestToFindBadID(clans);
+                self.finishRequest(ID, 'API Error');
+                self.splitRequestToFindBadID(clans, task);
             }
         });
 
         req.onError(function(error){
-            self.finishRequest(ID, 0, error, clans);
-            _.each(clans,function(clan){self.clans.unshift(clan);});
+            self.finishRequest(ID, error);
+            self.newTasks.unshift(task);
         });
     },
 
-    onUpdate: function(callback){
-        this.update_callback = callback;
+    processClans: function (clans, data){
+        var IDs = _.pluck(clans,'id');
+        var self = this;
+        this.Players.where(['clan_id IN ?', IDs], function(err, players) {
+            var clanPlayers = {};
+            _.each(players, function(player){
+                if(!clanPlayers[player.clan_id]){
+                    clanPlayers[player.clan_id] = [];
+                }
+                clanPlayers[player.clan_id].push(player);
+            });
+            _.each(clans, function(clan){
+                clan.members = clanPlayers[clan.id] || [];
+                clan.on('*',function(){
+                    var args = _.toArray(arguments);
+                    var event = args.shift();
+                    args.unshift('clans.'+clan.id+'.'+event);
+                    self.emit.apply(self, args);
+                });
+                clan.update(data[clan.id]);
+            });
+        });
     }
 });

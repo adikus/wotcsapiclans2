@@ -1,4 +1,4 @@
-var BaseCollection = require('./base_collection_Mongo');
+var BaseCollection = require('wotcs-api-system').BaseCollection('Mongo');
 
 module.exports = BaseCollection.extend({
 
@@ -9,8 +9,6 @@ module.exports = BaseCollection.extend({
         u: 'date'
     },
 
-    name: 'MemberChange',
-    dbName: 'clan',
-    collectionName: 'memberchanges'
+    dbName: 'ChangeDB'
 
 });

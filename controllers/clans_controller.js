@@ -1,5 +1,4 @@
-var cls = require("./../lib/class");
-var BaseController = require('./base_controller');
+var BaseController = require('wotcs-api-system').BaseController;
 var _ = require('underscore');
 
 module.exports = BaseController.extend({
@@ -19,7 +18,7 @@ module.exports = BaseController.extend({
             res.json({status: 'ok', clan_id: id, clan: clan, members: members});
         };
 
-        this.app.Clans.find(id, function(err, clan){
+        this.Clans.find(id, function(err, clan){
             if(clan){
                 if(self.players){
                     finish(clan.getData(), self.players);
@@ -27,7 +26,7 @@ module.exports = BaseController.extend({
                     self.clan = clan.getData();
                 }
             }else{
-                self.app.addClan(id, function(data){
+                self.workerManager.workers[0].executeAsync('addClan', id, function(data){
                     if(!data.error){
                         finish(data.clan, data.players);
                     }else{
@@ -37,7 +36,7 @@ module.exports = BaseController.extend({
             }
         });
 
-        this.app.Players.inClan(id, function(err, players) {
+        this.Players.inClan(id, function(err, players) {
             if(self.clan){
                 finish(self.clan, players);
             }else{
@@ -48,7 +47,7 @@ module.exports = BaseController.extend({
 
     changes: function (req, res) {
         var id = parseInt(req.params.id);
-        this.app.MemberChanges.where({c: id}, function(err, changes) {
+        this.MemberChanges.where({c: id}, {order: {u: -1}}, function(err, changes) {
             res.json({status: 'ok', clan_id: id, changes: _.map(changes, function(change) {
                 return change.getData();
             })});

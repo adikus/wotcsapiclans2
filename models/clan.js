@@ -1,9 +1,8 @@
-var BaseModel = require('./base_model_PG');
+var BaseModel = require('wotcs-api-system').BaseModel('PG');
 var _ = require('underscore');
-var MC = require("./../message_codes");
-var shared = require("./../shared");
+var Regions = require('../shared/regions');
 
-module.exports = BaseModel.extend({
+module.exports = Clan = BaseModel.extend({
 
     timestamps: true,
 
@@ -60,19 +59,17 @@ module.exports = BaseModel.extend({
 
         self.save(['tag', 'name', 'motto', 'description', 'status']);
 
-        if(callback){
-            var players = [];
-            _.each(data.members, function(member, id){
-                players.push({
-                    id: id,
-                    name: member.account_name
-                });
+        var players = [];
+        _.each(data.members, function(member, id){
+            players.push({
+                id: id,
+                name: member.account_name
             });
-            callback({
-                clan: this.getData(),
-                players: players
-            });
-        }
+        });
+        this.emit('updated', {
+            clan: this.getData(),
+            players: players
+        });
     },
 
     execChanges: function(add, remove) {
@@ -81,6 +78,7 @@ module.exports = BaseModel.extend({
         if(addIDs.length > 0){
             this.app.models.Players.where(['id IN ?', addIDs], function(err, players) {
                 _.each(add, function(name, id) {
+                    id = parseInt(id, 10);
                     var player = _.findWhere(players, {id: id});
                     self.addPlayer(id, name, player);
                 });
@@ -92,7 +90,6 @@ module.exports = BaseModel.extend({
     },
 
     addPlayer: function(id, name, player) {
-        id = parseInt(id, 10);
         var listOfAttributes = [];
         if(player){
             player.clan_id = this.id;
@@ -108,14 +105,11 @@ module.exports = BaseModel.extend({
         }
         if(this.members.length > 0){
             console.log('Add player to clan', this.tag, ':', name, id);
-            if(this.app.update_callback){
-                this.app.update_callback({key: this.app.worker_key, actionData: {
-                    code: MC.ws.server.MEMBER_JOINED,
-                    id: id,
-                    name: name,
-                    clan: {name: this.name, tag: this.tag, id: this.id, region: shared.TranslatedRegion[shared.getRegion(this.id)]}
-                }});
-            }
+            this.emit('add-player', {
+                id: id,
+                name: name,
+                clan: {name: this.name, tag: this.tag, id: this.id, region: Regions.TranslatedRegion[Regions.getRegion(this.id)]}
+            }, true);
             this.saveMemberChange(id, 1);
         }
         player.save(listOfAttributes);
@@ -123,14 +117,11 @@ module.exports = BaseModel.extend({
 
     removePlayer: function(player) {
         console.log('Remove player from clan', this.tag, ':', player.name, player.id);
-        if(this.app.update_callback){
-            this.app.update_callback({key: this.app.worker_key, actionData: {
-                code: MC.ws.server.MEMBER_LEFT,
-                id: player.id,
-                name: player.name,
-                clan: {name: this.name, tag: this.tag, id: this.id, region: shared.TranslatedRegion[shared.getRegion(this.id)]}
-            }});
-        }
+        this.emit('remove-player', {
+            id: player.id,
+            name: player.name,
+            clan: {name: this.name, tag: this.tag, id: this.id, region: Regions.TranslatedRegion[Regions.getRegion(this.id)]}
+        }, true);
         player.clan_id = 0;
         player.save(['clan_id']);
         this.saveMemberChange(player.id, -1);

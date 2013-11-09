@@ -13,6 +13,8 @@
     "underscore": "*",
     "pg": "*",
     "squel": "*",
-    "mongodb": "*"
+    "mongodb": "*",
+    "wotcs-api-system": "*",
+    "chokidar": "*"
   }
 }

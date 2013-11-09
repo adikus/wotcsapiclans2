@@ -5,6 +5,8 @@ block content
       h1 Admin interface
           small  Login
 
+  if error
+      .alert.alert-danger= error
   form.form-horizontal(role='form',action='/admin',method='post')
       .form-group
           label.col-sm-2.control-label(for='admin_password') Password
