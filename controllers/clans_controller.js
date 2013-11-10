@@ -15,7 +15,17 @@ module.exports = BaseController.extend({
             var members = _.map(players, function(player) {
                 return _.pick(player, 'id', 'name');
             });
-            res.json({status: 'ok', clan_id: id, clan: clan, members: members});
+            var ret = {status: 'ok', clan_id: id, clan: clan, members: members};
+            self.store(ret, 10*60*1000);
+            self.updateStoreOn('workers.*', function(event, data) {
+                var regex = new RegExp('clans.'+id+'.updated');
+                if(event.match(regex)){
+                    console.log('Updated data store for clan',id);
+                    this.data.clan = data.clan;
+                    this.data.members = data.players;
+                }
+            });
+            res.json(ret);
         };
 
         this.Clans.find(id, function(err, clan){
