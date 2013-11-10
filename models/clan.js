@@ -11,7 +11,6 @@ module.exports = Clan = BaseModel.extend({
             name: this.name,
             description: this.description,
             motto: this.motto,
-            name: this.name,
             tag: this.tag,
             status: this.status,
             updated_at: new Date(this.updated_at)

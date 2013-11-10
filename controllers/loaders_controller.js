@@ -10,6 +10,7 @@ module.exports = BaseController.extend({
             worker--;
         }
         var ret = {
+            title: 'Clan loader',
             workers: {}, worker: worker, queue: this.workerManager.queue.getCurrentStatus()
         };
         var count = worker == 'all' ? _.size(self.workerManager.workers) : 1;
@@ -59,14 +60,14 @@ module.exports = BaseController.extend({
         if(req.body.admin_password == process.env.WOTCS_ADMIN_PASSWORD){
             res.cookie('role','admin',{signed: true}).redirect('/admin');
         }else{
-            res.render('login',{error: 'Wrong password'});
+            res.render('login',{error: 'Wrong password', title: 'Login into admin interface'});
         }
     },
 
     admin: function(req, res) {
         var self = this;
         if(req.signedCookies.role == 'admin'){
-            var ret = {workers: {}, worker: 'all', queue: this.workerManager.queue.getCurrentStatus()};
+            var ret = {title: 'WoTcsClans API Admin interface', workers: {}, worker: 'all', queue: this.workerManager.queue.getCurrentStatus()};
             var done = _.after(_.size(self.workerManager.workers), function(){
                 ret.workers.all = self.sumAllWorkers(ret.workers);
                 res.render('admin', ret);

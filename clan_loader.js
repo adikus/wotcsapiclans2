@@ -19,7 +19,7 @@ module.exports = Eventer.extend({
         };
 
         this.newTasks = [];
-        this.recentRequest = [];
+        this.recentRequests = {};
         this.currentRequests = {};
         this.priorityRequests = [];
         this.interval = null;
@@ -132,7 +132,7 @@ module.exports = Eventer.extend({
     },
 
     getLastRequestAt: function() {
-        var obj = _.last(this.currentRequests) || _.last(this.recentRequest) || this.stats;
+        var obj = _.last(this.currentRequests) || _.last(this.recentRequests) || this.stats;
         return obj.start;
     },
 
@@ -183,22 +183,22 @@ module.exports = Eventer.extend({
         if(!this.currentRequests[ID]){
             console.log(ID, this.currentRequests);
         }
-        this.recentRequest[ID] = this.currentRequests[ID];
+        this.recentRequests[ID] = this.currentRequests[ID];
         delete this.currentRequests[ID];
-        this.recentRequest[ID].end = new Date();
-        this.recentRequest[ID].duration = this.recentRequest[ID].end.getTime() - this.recentRequest[ID].start.getTime();
-        this.recentRequest[ID].error = error;
+        this.recentRequests[ID].end = new Date();
+        this.recentRequests[ID].duration = this.recentRequests[ID].end.getTime() - this.recentRequests[ID].start.getTime();
+        this.recentRequests[ID].error = error;
 
-        this.stats.finishedClans += error ? 0 : this.recentRequest[ID].count;
+        this.stats.finishedClans += error ? 0 : this.recentRequests[ID].count;
         this.stats.finishedRequests += 1;
         if(error){
             this.stats.errorRequests += 1;
         }
         this.emit('update', this.getCurrentState(), true);
 
-        this.waitTime = this.recentRequest[ID].duration*this.config.waitMultiplier/this.config.maxActiveRequests;
+        this.waitTime = this.recentRequests[ID].duration*this.config.waitMultiplier/this.config.maxActiveRequests;
 
-        this.emit('finish-request', this.recentRequest[ID], true);
+        this.emit('finish-request', this.recentRequests[ID], true);
     },
 
     parseAndCheckData: function(data, IDs){
