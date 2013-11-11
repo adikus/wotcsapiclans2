@@ -18,7 +18,11 @@ $(function(){
 
         system.onClose(function(){
             APIData.requests = {};
+            APIData.workers = {};
             $('[id$="request_list"]').find('.list-group-item').remove();
+
+            $('#worker-buttons').html('<a class="btn btn-default active" href="/">All</a>');
+            $('#admin_panels').html("");
         });
         system.onMessage(/workers\.(\d+?)\.start-request/, function(match, data){
             var selector = APIData.worker == 'all' ? 'all' : match[1];
@@ -67,9 +71,28 @@ $(function(){
         system.onMessage(/workers\.(\d+?)\.update/, function(match, data){
             var worker = match[1];
             var selector = APIData.worker == 'all' ? 'all' : worker;
-            APIData.workers[worker].stats.finishedRequests = data.stats.finishedRequests;
-            APIData.workers[worker].stats.finishedClans = data.stats.finishedClans;
-            APIData.workers[worker].stats.errorRequests = data.stats.errorRequests;
+            if(!APIData.workers[worker]){
+                APIData.workers[worker] = {};
+            }
+            if(!APIData.workers.all){
+                APIData.workers.all = {
+                    stats:{
+                        finishedRequests: 0,
+                        finishedClans: 0,
+                        errorRequests: 0
+                    }
+                };
+            }
+            if($('#worker_'+worker+'_link').length == 0){
+                var humanIndex = (1+parseInt(worker,10));
+                $('#worker-buttons').append('<a class="btn btn-default" id="worker_'+worker+'_link" href="?w='+humanIndex+'">Worker '+humanIndex+'</a>');
+            }
+
+            APIData.workers[worker].stats = {
+                finishedRequests: data.stats.finishedRequests,
+                finishedClans: data.stats.finishedClans,
+                errorRequests: data.stats.errorRequests
+            };
 
             APIData.workers.all.stats.finishedRequests = 0;
             APIData.workers.all.stats.finishedClans = 0;
@@ -89,8 +112,10 @@ $(function(){
 
             var finishedClans = APIData.workers.all.stats.finishedClans;
             setTimeout(function(){
-                var speed = (APIData.workers.all.stats.finishedClans - finishedClans)/10;
-                $('#'+selector+'_speed').html(Math.round(speed*100)/100+' clans/s');
+                if(APIData.workers.all){
+                    var speed = (APIData.workers.all.stats.finishedClans - finishedClans)/10;
+                    $('#'+selector+'_speed').html(Math.round(speed*100)/100+' clans/s');
+                }
             },10000);
         });
         system.onMessage(/workers\.(\d+?)\.clans\.(\d+?)\.add-player/, function(match, data){
