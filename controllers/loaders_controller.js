@@ -20,7 +20,7 @@ module.exports = BaseController.extend({
             res.render('index', ret);
         });
         _.each(this.workerManager.workers, function(w, index) {
-            if(worker != index && worker != 'all'){
+            if((worker != index && worker != 'all') || worker.type == 'client'){
                 ret.workers[index] = {
                     stats:{
                         finishedRequests: 0,
