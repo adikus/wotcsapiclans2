@@ -1,1 +1,0 @@
-clientjade -c views/templates/ > public/javascripts/templates.js

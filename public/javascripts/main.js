@@ -16,6 +16,10 @@ $(function(){
         var workerSub = APIData.worker == 'all' ? '*' : APIData.worker+'.*';
         window.system = new WOTcsSystem(['subscribe', 'workers.'+workerSub, 'queue.*']);
 
+        system.onClose(function(){
+            APIData.requests = {};
+            $('[id$="request_list"]').find('.list-group-item').remove();
+        });
         system.onMessage(/workers\.(\d+?)\.start-request/, function(match, data){
             var selector = APIData.worker == 'all' ? 'all' : match[1];
             var ID = data.task.ID;
