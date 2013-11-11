@@ -6,7 +6,6 @@ module.exports = {
         '/clans/:id': 'clans#index',
         '/clans/:id/changes': 'clans#changes'
     },
-
     post: {
         '/admin':'loaders#auth'
     }
