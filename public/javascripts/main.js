@@ -135,7 +135,8 @@ $(function(){
                     errorRequests: 0
                 }
             };
-            $('#worker-buttons').append('<a class="btn btn-default" id="worker_'+worker+'_link" href="?w='+worker+'">Worker '+(1+parseInt(worker,10))+'</a>');
+            var humanIndex = (1+parseInt(worker,10));
+            $('#worker-buttons').append('<a class="btn btn-default" id="worker_'+worker+'_link" href="?w='+humanIndex+'">Worker '+humanIndex+'</a>');
             if($('#admin_panels').length > 0){
                 system.send(['execute',worker,'getConfig']);
             }

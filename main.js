@@ -6,5 +6,5 @@ var app = new App(__dirname, config);
 
 if (app.isMaster){
     var queue = new Queue();
-    app.setupWorkers(4, 'clan_loader', queue);
+    app.setupWorkers(4, 'clan_loader', 'clan_loader_client', queue);
 }

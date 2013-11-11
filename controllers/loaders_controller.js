@@ -82,6 +82,10 @@ module.exports = BaseController.extend({
             res.render('login',{error: 'Please login'});
         }
 
+    },
+
+    worker: function (req, res){
+        res.render('worker',{title: 'Clan worker'});
     }
 
 });

@@ -17,12 +17,18 @@ module.exports = Clan = BaseModel.extend({
         };
     },
 
-    update: function(data, callback) {
+    update: function(data) {
         var self = this;
 
         if(data === null){
             this.status = -1;
             this.save(['status']);
+
+            this.emit('updated', {
+                clan: this.getData(),
+                players: []
+            });
+
             return;
         }
 
