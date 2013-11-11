@@ -14,7 +14,7 @@ $(function(){
         },100);
 
         var workerSub = APIData.worker == 'all' ? '*' : APIData.worker+'.*';
-        window.system = new WOTcsSystem(['subscribe', 'workers.'+workerSub, 'queue.*']);
+        window.system = new WOTcsSystem(['workers.'+workerSub, 'queue.*']);
 
         system.onClose(function(){
             APIData.requests = {};
@@ -117,34 +117,61 @@ $(function(){
             var worker = match[1];
             $('#'+worker+'_start_stop').html('Stop').removeClass('paused');
         });
-        system.onMessage("execute", function(worker, method){
+        system.onMessage("execute", function(worker, method, data){
             if(method == 'setConfig'){
                 $('#'+worker+'_config_submit').html('Saved');
+            }else if(method == 'getConfig'){
+                $('#admin_panels').append(getTemplate('admin_panel_template',{key: worker, config: data}));
+            }else{
+                console.log(arguments);
             }
+        });
+        system.onMessage('workers.add-worker', function(data) {
+            var worker = data.ID;
+            APIData.workers[worker] = {
+                stats: {
+                    finishedRequests: 0,
+                    finishedClans: 0,
+                    errorRequests: 0
+                }
+            };
+            $('#worker-buttons').append('<a class="btn btn-default" id="worker_'+worker+'_link" href="?w='+worker+'">Worker '+(1+parseInt(worker,10))+'</a>');
+            if($('#admin_panels').length > 0){
+                system.send(['execute',worker,'getConfig']);
+            }
+        });
+        system.onMessage('workers.remove-worker', function(data) {
+            var worker = data.ID;
+            delete APIData.workers[worker];
+            $('#worker_'+worker+'_link').remove();
+            $('#'+worker+'_admin_panel').remove();
+        });
+        system.onUnrecognized(function(){
+            console.log(arguments);
         });
 
     }
 
-    $('[id$="_config_submit"]').click(function() {
-        var worker = $(this).attr('id').split('_')[0];
-        var $parent = $(this).parents('.list-group');
-        var config = {};
-        $parent.find('.config input').each(function(){
-            config[$(this).attr('id').split('_')[1]] = $(this).val();
+    if($('#admin_panels').length > 0){
+        $(document).on('click','[id$="_config_submit"]',function() {
+            var worker = $(this).attr('id').split('_')[0];
+            var $parent = $(this).parents('.list-group');
+            var config = {};
+            $parent.find('.config input').each(function(){
+                config[$(this).attr('id').split('_')[1]] = $(this).val();
+            });
+            system.send(['execute',worker,'setConfig',config]);
         });
-        system.send(['execute',worker,'setConfig',config]);
-    }).each(function(){
-        var $button = $(this);
-        $(this).parents('.list-group').find('input').change(function(){
-            $button.html('Save');
+        $('#admin_panels').on('change', 'input', function() {
+            $(this).parents('.list-group').find('[id$="_config_submit"]').html('Save');
         });
-    });
 
-    $('[id$="_start_stop"]').click(function() {
-        var worker = $(this).attr('id').split('_')[0];
-        var pause = !$(this).hasClass('paused');
-        system.send(['execute',worker,'pause',pause]);
-    });
+        $(document).on('click', '[id$="_start_stop"]', function() {
+            var worker = $(this).attr('id').split('_')[0];
+            var pause = !$(this).hasClass('paused');
+            system.send(['execute',worker,'pause',pause]);
+        });
+    }
 });
 
 function parseRequestTimes(req) {

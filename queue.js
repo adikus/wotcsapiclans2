@@ -100,8 +100,17 @@ module.exports = Eventer.extend({
         }else{
             var elem = this.toDoQueue.shift();
             var ret = {};
-            this.pendingQueue[this.pendingID] = elem;
-            ret[this.pendingID++] = elem;
+            var ID = this.pendingID++;
+            this.pendingQueue[ID] = elem;
+
+            setTimeout(function(){
+                if(self.pendingQueue[ID]){
+                    console.log('Task timeout:', ID);
+                    self.reportFail(ID);
+                }
+            },60000);
+
+            ret[ID] = elem;
 
             this.emit('update', this.getCurrentStatus(), true);
 
@@ -119,8 +128,9 @@ module.exports = Eventer.extend({
         this.emit('update', this.getCurrentStatus(), true);
     },
 
-    reportFail: function(id) {
-        this.toDoQueue.unshift(this.pendingQueue[id]);
+    reportFail: function(ID) {
+        this.toDoQueue.unshift(this.pendingQueue[ID]);
+        delete this.pendingQueue[ID];
         this.emit('update', this.getCurrentStatus(), true);
     }
 

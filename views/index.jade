@@ -8,12 +8,12 @@ block content
   if error
     .alert.alert-danger= error
   else
-      .btn-group
+      #worker-buttons.btn-group
           a.btn.btn-default(href="/",class=worker=='all'?'active':'') All
           each w, index in workers
               if index != 'all'
                   - humanIndex = 1+parseInt(index,10)
-                  a.btn.btn-default(href="?w="+humanIndex,class=worker==index?'active':'') Worker !{humanIndex}
+                  a.btn.btn-default(id='worker_'+index+'_link',href="?w="+humanIndex,class=worker==index?'active':'') Worker !{humanIndex}
       br
       br
 

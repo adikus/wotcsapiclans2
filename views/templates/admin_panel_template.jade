@@ -1,0 +1,13 @@
+block admin_panel_template
+    .col-sm-3
+        .panel.panel-default(id=key+'_admin_panel')
+            .panel-heading
+                h3 Worker !{key}
+            .list-group.condensed
+                each value, name in config
+                    .list-group-item.config
+                        input.badge.editable(id=key+'_'+name,value=value,type='text')
+                        = name
+                .list-group-item
+                    button.btn.btn-primary.pull-right(id=key+'_config_submit') Save
+                    button.btn.btn-danger(id=key+'_start_stop')= 'Stop'

@@ -9,11 +9,11 @@ block content
         .alert.alert-danger= error
     else
 
-        .row
+        .row#admin_panels
             each currentWorker, key in workers
                 if key != 'all'
                     .col-sm-3
-                        .panel.panel-default
+                        .panel.panel-default(id=key+'_admin_panel')
                             .panel-heading
                                 h3 Worker !{key}
                             .list-group.condensed

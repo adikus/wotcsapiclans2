@@ -81,11 +81,6 @@ module.exports = Eventer.extend({
                     }
                 });
             });
-            setTimeout(function() {
-                if(done != count){
-                    self.emit('fail-task', taskID, true);
-                }
-            },60000);
             self.newTasks.push(newTask);
             if(self.paused){
                 self.pause(false, true);

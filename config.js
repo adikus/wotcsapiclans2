@@ -13,5 +13,8 @@ module.exports = {
                 '*': ['admin']
             }
         }
+    },
+    worker: {
+        url: 'ws://clanapi.wotcs.com'
     }
 };
