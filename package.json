@@ -10,6 +10,6 @@
     "squel": "*",
     "mongodb": "*",
     "underscore": "*",
-    "wotcs-api-system": "0.0.8"
+    "wotcs-api-system": "0.0.9"
   }
 }
