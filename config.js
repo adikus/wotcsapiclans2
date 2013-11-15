@@ -16,7 +16,7 @@ module.exports = {
     },
     workerManager: {
         version: 1,
-        clientLimit: 50
+        clientLimit: 200
     },
     worker: {
         url: process.env.API_POSTGRE ? 'ws://localhost:3000' : 'ws://clanapi.wotcs.com'
