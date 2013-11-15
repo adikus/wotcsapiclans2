@@ -191,7 +191,7 @@ module.exports = Eventer.extend({
             }
         };
         if(!task.task){
-            console.log(task);
+            console.log('No task',task);
         }
         this.emit('start-request', this.currentRequests[task.ID], true);
     },

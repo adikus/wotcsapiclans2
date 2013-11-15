@@ -45,6 +45,7 @@ module.exports = Eventer.extend({
             var newTask = {
                 ID: taskID,
                 region: Regions.TranslatedRegion[task.region],
+                skip: task.skip/task.limit,
                 clans: _(goodClans).map(function(clan){return clan.id;})
             };
             callback(newTask);
@@ -55,7 +56,7 @@ module.exports = Eventer.extend({
 
     processTask: function (ID, data){
         if(!this.tasks[ID]){
-            console.log(ID);
+            console.log('No such task:',ID);
             return;
         }
         var clans = this.tasks[ID].clans;

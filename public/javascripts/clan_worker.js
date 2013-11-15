@@ -224,7 +224,7 @@ ClanWorker = Class.extend({
         this.currentRequests[ID] = {
             start: new Date(),
             count: task.clans.length,
-            task: {ID: ID, region: task.region}
+            task: {ID: ID, region: task.region, skip: task.skip}
         };
         this.send(['emit', 'start-request', this.currentRequests[task.ID], true]);
     },
