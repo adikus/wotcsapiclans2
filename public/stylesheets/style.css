@@ -5914,8 +5914,13 @@ td.visible-print {
   background-color: #f2dede;
   border-color: #eed3d7;
 }
-input.badge.editable {
+#admin-panel input.badge.editable {
   display: inline-block;
   width: 50px;
+  height: 18px;
   border: none;
+  margin-right: 5px;
+}
+#admin-panel .btn {
+  margin-right: 5px;
 }

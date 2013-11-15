@@ -2,16 +2,8 @@ doctype 5
 html
   head
     title= title
-    - dev = process.env.ENV != 'production';
-    if dev
-        script(type='text/javascript', src='javascripts/jquery-1.10.2.min.js')
-        script(type='text/javascript', src='javascripts/templates.js')
-        script(type='text/javascript', src='javascripts/system.js')
-        script(type='text/javascript', src='javascripts/request.js')
-        script(type='text/javascript', src='javascripts/main.js')
-        script(type='text/javascript', src='javascripts/clan_worker.js')
-    else
-        script(type='text/javascript', src='javascripts/application.js')
+    each file in base.JSFiles
+        script(type='text/javascript', src='javascripts/'+file)
 
     link(rel='stylesheet', href='/stylesheets/style.css')
   body

@@ -14,6 +14,12 @@ ClanWorker = Class.extend({
             minWaitTime: 1500
         };
 
+        this.options = {
+            version: 1,
+            type: 'clans',
+            region: 1
+        };
+
         this.stats = {
             finishedRequests: 0,
             errorRequests: 0,
@@ -37,15 +43,19 @@ ClanWorker = Class.extend({
             console.log('Connected');
             self.ws = ws;
 
-            self.send(['client-worker']);
+            self.send(['client-worker', self.getQueueOptions()]);
         };
         ws.onmessage = function(event) {
             var msg = JSON.parse(event.data);
             self.handleMessage(msg);
         };
-        ws.onclose = function() {
-            if(self.close_calback){
-                self.close_calback();
+        ws.onclose = function(data) {
+            if(data.reason == 'version'){
+                console.log('Disconnected - incompatible server version');
+                return;
+            }else if(data.reason == 'client-limit'){
+                console.log('Disconnected - too many clients connected to server');
+                return;
             }
             console.log('Reconnect in 1s');
             setTimeout(function(){
@@ -126,6 +136,10 @@ ClanWorker = Class.extend({
         }
     },
 
+    getQueueOptions: function() {
+        return this.options;
+    },
+
     getCurrentState: function(options){
         var ret = {paused: this.paused && !this.silentPause, stats: this.stats};
         if(options && options.config){
@@ -135,15 +149,20 @@ ClanWorker = Class.extend({
     },
 
     getConfig: function() {
-        return this.config;
+        var ret = this.config;
+        ret.paused = this.paused && !this.silentPause;
+        return ret;
     },
 
     setConfig: function(config){
-        var self = this;
-        for(var i in config){
-            this.config[i] = config[i];
-        }
-        return this.config;
+        _.each(config, function(value, name){
+            if(name != 'paused'){
+                this.config[name] = value;
+            }else{
+                this.pause(value)
+            }
+        },this);
+        return this.getConfig();
     },
 
     getLastRequestAt: function() {

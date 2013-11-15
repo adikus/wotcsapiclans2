@@ -2,45 +2,41 @@ $(function(){
 
     if(window.APIData){
         APIData.requests = {};
+        APIData.waitingForConfig = {};
 
         setInterval(function(){
             for(var i in APIData.requests){
                 if(!APIData.requests[i].duration){
                     var req = APIData.requests[i];
                     var duration = (new Date()).getTime() - (new Date(req.start)).getTime() + ' ms';
-                    $('#'+req.w+'_req_'+i+' .badge').html(duration);
+                    $('#queue_task_'+i+' .badge').html(duration);
                 }
             }
         },100);
 
-        var workerSub = APIData.worker == 'all' ? '*' : APIData.worker+'.*';
-        window.system = new WOTcsSystem(['workers.'+workerSub, 'queue.*']);
+        window.system = new WOTcsSystem(['workers.*', 'queue.*']);
 
-        system.onClose(function(){
+        system.on('closed',function(){
             APIData.requests = {};
-            APIData.workers = {};
-            $('[id$="request_list"]').find('.list-group-item').remove();
-
-            $('#worker-buttons').html('<a class="btn btn-default active" href="/">All</a>');
-            $('#admin_panels').html("");
+            APIData.workers = {local:[], server:[], client:[]};
+            APIData.configs = {local:{}, server:{}, client:{}};
+            renderWorkerCounts();
+            renderAdminPanel();
+            $('[id$="task_list"]').find('.list-group-item').remove();
         });
-        system.onMessage(/workers\.(\d+?)\.start-request/, function(match, data){
-            var selector = APIData.worker == 'all' ? 'all' : match[1];
+        system.on('workers.*.start-request', function(event, data){
             var ID = data.task.ID;
             var req = parseRequestTimes(data);
-            req.w = selector;
             APIData.requests[ID] = req;
-            var $requestList = $('#'+selector+'_request_list');
-            $requestList.prepend(getTemplate('request_template',{worker: selector, req: req, ID: ID}));
+            var $requestList = $('#queue_task_list');
+            $requestList.prepend(getTemplate('request_template',{req: req, ID: ID}));
             $requestList.find('.list-group-item').slice(100).remove();
         });
-        system.onMessage(/workers\.(\d+?)\.finish-request/, function(match, data){
-            var selector = APIData.worker == 'all' ? 'all' : match[1];
+        system.on('workers.*.finish-request', function(event, data){
             var ID = data.task.ID;
             var req = parseRequestTimes(data);
-            req.w = selector;
             APIData.requests[ID] = req;
-            var $req = $('#'+selector+'_req_'+ID);
+            var $req = $('#queue_task_'+ID);
             $req.removeClass('active').addClass('finished')
                 .find('.badge').html(req.duration+' ms');
             if(req.error){
@@ -48,10 +44,15 @@ $(function(){
                     .find('i').html(' - '+req.error);
             }
         });
-        system.onMessage(/queue\.update/, function(match, data){
+        system.on('queue.update', function(event, data){
             $('#queue_total').html(data.totalCount);
             $('#queue_done').html(data.doneCount);
             $('#queue_pending').html(data.pending);
+
+            $('#queue_finished_clans').html(data.finishedClans);
+            $('#queue_finished_tasks').html(data.finishedTasks);
+            $('#queue_error_tasks').html(data.errorTasks);
+            $('#queue_speed').html(data.speed+' clans/s');
 
             var completion = data.doneCount / data.totalCount * 100;
             var pendingCompletion = data.pending / data.totalCount * 100;
@@ -59,146 +60,180 @@ $(function(){
 
             $progress.find('.progress-bar-success').attr('style', 'width:' + completion + '%');
             $progress.find('.progress-bar-warning').attr('style', 'width:' + pendingCompletion + '%');
-
-            var duration = (new Date()).getTime() - (new Date(data.start)).getTime();
-            var speed = data.doneCount/duration*1000;
-            var remaining = data.totalCount - data.doneCount;
-            var remainingSeconds = Math.round(remaining/speed);
-            var remainingMinutes = Math.floor(remainingSeconds/60);
-            var time = remainingMinutes > 0 ? remainingMinutes+' m ' : '';
-            $('#queue_remaining_time').html(time+remainingSeconds%60+' s');
         });
-        system.onMessage(/workers\.(\d+?)\.update/, function(match, data){
-            var worker = match[1];
-            var selector = APIData.worker == 'all' ? 'all' : worker;
-            if(!APIData.workers[worker]){
-                APIData.workers[worker] = {};
-            }
-            if(!APIData.workers.all){
-                APIData.workers.all = {
-                    stats:{
-                        finishedRequests: 0,
-                        finishedClans: 0,
-                        errorRequests: 0
-                    }
-                };
-            }
-            if($('#worker_'+worker+'_link').length == 0){
-                var humanIndex = (1+parseInt(worker,10));
-                $('#worker-buttons').append('<a class="btn btn-default" id="worker_'+worker+'_link" href="?w='+humanIndex+'">Worker '+humanIndex+'</a>');
-            }
-
-            APIData.workers[worker].stats = {
-                finishedRequests: data.stats.finishedRequests,
-                finishedClans: data.stats.finishedClans,
-                errorRequests: data.stats.errorRequests
-            };
-
-            APIData.workers.all.stats.finishedRequests = 0;
-            APIData.workers.all.stats.finishedClans = 0;
-            APIData.workers.all.stats.errorRequests = 0;
-
-            for(var i in APIData.workers) {
-                if(i != 'all'){
-                    APIData.workers.all.stats.finishedRequests += APIData.workers[i].stats.finishedRequests;
-                    APIData.workers.all.stats.finishedClans += APIData.workers[i].stats.finishedClans;
-                    APIData.workers.all.stats.errorRequests += APIData.workers[i].stats.errorRequests;
-                }
-            }
-
-            $('#'+selector+'_finished_clans').html(APIData.workers.all.stats.finishedClans);
-            $('#'+selector+'_finished_requests').html(APIData.workers.all.stats.finishedRequests);
-            $('#'+selector+'_error_requests').html(APIData.workers.all.stats.errorRequests);
-
-            var finishedClans = APIData.workers.all.stats.finishedClans;
-            setTimeout(function(){
-                if(APIData.workers.all){
-                    var speed = (APIData.workers.all.stats.finishedClans - finishedClans)/10;
-                    $('#'+selector+'_speed').html(Math.round(speed*100)/100+' clans/s');
-                }
-            },10000);
-        });
-        system.onMessage(/workers\.(\d+?)\.clans\.(\d+?)\.add-player/, function(match, data){
-            var selector = APIData.worker == 'all' ? 'all' : match[1];
-            var $eventList = $('#'+selector+'_event_list');
+        system.on('workers.*.clans.*.add-player', function(event, data){
+            var $eventList = $('#event_list');
             if($eventList.length > 0){
-                $eventList.prepend(getTemplate('event_template',{worker: selector, event: data, ch: 1}));
+                $eventList.prepend(getTemplate('event_template',{event: data, ch: 1}));
                 $eventList.find('.list-group-item').slice(100).remove();
             }
         });
-        system.onMessage(/workers\.(\d+?)\.clans\.(\d+?)\.remove-player/, function(match, data){
-            var selector = APIData.worker == 'all' ? 'all' : match[1];
-            var $eventList = $('#'+selector+'_event_list');
+        system.on('workers.*.clans.*.remove-player', function(event, data){
+            var $eventList = $('#event_list');
             if($eventList.length > 0){
-                $eventList.prepend(getTemplate('event_template',{worker: selector, event: data, ch: -1}));
+                $eventList.prepend(getTemplate('event_template',{event: data, ch: -1}));
                 $eventList.find('.list-group-item').slice(100).remove();
             }
         });
-        system.onMessage(/workers\.(\d+?)\.pause/, function(match){
-            var worker = match[1];
+        system.on('workers.*.pause', function(event){
+            var worker = event.split('.')[1];
             $('#'+worker+'_start_stop').html('Start').addClass('paused');
         });
-        system.onMessage(/workers\.(\d+?)\.start/, function(match){
-            var worker = match[1];
+        system.on('workers.*.start', function(event){
+            var worker = event.split('.')[1];
             $('#'+worker+'_start_stop').html('Stop').removeClass('paused');
         });
-        system.onMessage("execute", function(worker, method, data){
-            if(method == 'setConfig'){
-                $('#'+worker+'_config_submit').html('Saved');
-            }else if(method == 'getConfig'){
-                $('#admin_panels').append(getTemplate('admin_panel_template',{key: worker, config: data}));
-            }else{
-                console.log(arguments);
-            }
+        system.on('workers.add-worker', function(event, data) {
+            APIData.workers = data.workers;
+            renderWorkerCounts();
+            ensureConfigForEveryWorker();
         });
-        system.onMessage('workers.add-worker', function(data) {
-            var worker = data.ID;
-            APIData.workers[worker] = {
-                stats: {
-                    finishedRequests: 0,
-                    finishedClans: 0,
-                    errorRequests: 0
-                }
-            };
-            var humanIndex = (1+parseInt(worker,10));
-            $('#worker-buttons').append('<a class="btn btn-default" id="worker_'+worker+'_link" href="?w='+humanIndex+'">Worker '+humanIndex+'</a>');
-            if($('#admin_panels').length > 0){
-                system.send(['execute',worker,'getConfig']);
-            }
+        system.on('workers.remove-worker', function(event, data) {
+            APIData.workers = data.workers;
+            delete APIData.configs[data.type][data.ID];
+            renderWorkerCounts();
+            renderAdminPanel();
+            ensureConsistentConfigs();
         });
-        system.onMessage('workers.remove-worker', function(data) {
-            var worker = data.ID;
-            delete APIData.workers[worker];
-            $('#worker_'+worker+'_link').remove();
-            $('#'+worker+'_admin_panel').remove();
-        });
-        system.onUnrecognized(function(){
-            console.log(arguments);
-        });
+
+        if(APIData.admin){
+            system.on('connected', function(){
+                system.send(['execute-all','getConfig']);
+                system.on('execute-all.getConfig', function(event, data){
+                    APIData.configs = {local:{},server:{},client:{}};
+                    _(data).each(function(worker, ID){
+                        var config = worker.args[0];
+                        if(config.error && !APIData.waitingForConfig[ID]){
+                            console.log(config.error);
+                            APIData.waitingForConfig[ID] = new Date();
+                            system.send(['execute',ID,'getConfig']);
+                        }else{
+                            APIData.configs[worker.type][ID] = config;
+                        }
+                    });
+                    _(APIData.configs).each(function(workers,type){
+                        APIData.workers[type] = _(workers).keys();
+                    });
+                    renderWorkerCounts();
+                    renderAdminPanel();
+                    ensureConsistentConfigs();
+                });
+            });
+            system.on('execute.*.getConfig', function(event, data){
+                var ID = event.split('.')[1];
+                getConfig(ID, data);
+            });
+            $(document).on('click','[id$="_config_submit"]',function() {
+                setConfig($(this),null);
+            });
+            system.on('execute.*.setConfig', function(event, data){
+                var ID = event.split('.')[1];
+                getConfig(ID, data);
+            });
+            $(document).on('click', '[id$="_start_stop"]', function() {
+                setConfig($(this), !$(this).hasClass('paused'));
+            });
+        }
 
     }
 
     if($('#admin_panels').length > 0){
-        $(document).on('click','[id$="_config_submit"]',function() {
-            var worker = $(this).attr('id').split('_')[0];
-            var $parent = $(this).parents('.list-group');
-            var config = {};
-            $parent.find('.config input').each(function(){
-                config[$(this).attr('id').split('_')[1]] = $(this).val();
-            });
-            system.send(['execute',worker,'setConfig',config]);
-        });
+
         $('#admin_panels').on('change', 'input', function() {
             $(this).parents('.list-group').find('[id$="_config_submit"]').html('Save');
         });
 
-        $(document).on('click', '[id$="_start_stop"]', function() {
-            var worker = $(this).attr('id').split('_')[0];
-            var pause = !$(this).hasClass('paused');
-            system.send(['execute',worker,'pause',pause]);
-        });
+
     }
 });
+
+function setConfig($elem, pause){
+    var type = $elem.attr('id').split('_')[0];
+    var $parent = $elem.parents('.list-group-item');
+    var config = {};
+    $parent.find('input').each(function(){
+        config[$(this).attr('id').split('_')[1]] = $(this).val();
+    });
+    if(pause !== null){
+        config.paused = pause;
+    }
+    _(APIData.workers[type]).each(function(ID){
+        APIData.waitingForConfig[ID] = new Date();
+        system.send(['execute',ID,'setConfig',config]);
+    });
+}
+
+function getConfig(ID, config){
+    var type = '';
+    _(APIData.workers).each(function(workers, wType){
+        if(_(workers).include(ID)){
+            type = wType;
+        }
+    });
+    if(type == ''){
+        console.log(ID, type, APIData.workers);
+    }else{
+        delete APIData.waitingForConfig[ID];
+        APIData.configs[type][ID] = config;
+        renderAdminPanel();
+        ensureConsistentConfigs();
+    }
+}
+
+function ensureConfigForEveryWorker() {
+    _(APIData.workers).each(function(workers, type){
+        _(workers).each(function(ID){
+            if(!APIData.configs[type][ID]){
+                if(!APIData.waitingForConfig[ID]){
+                    APIData.waitingForConfig[ID] = new Date();
+                    system.send(['execute',ID,'getConfig']);
+                }
+            }
+        });
+    });
+}
+
+function sameConfigs(config1, config2) {
+    for(var i in config1){
+        if(config1.hasOwnProperty(i) && config1[i] != config2[i]){
+            return false;
+        }
+    }
+    return true;
+}
+
+function ensureConsistentConfigs() {
+    _.each(APIData.configs, function(workers, type) {
+        var first = workers[_(workers).keys()[0]];
+        if(first){
+            _(workers).each(function(config, ID){
+                if(!sameConfigs(config, first)){
+                    if(!APIData.waitingForConfig[ID]){
+                        APIData.waitingForConfig[ID] = new Date();
+                        system.send(['execute',ID,'setConfig',first]);
+                    }
+                }
+            });
+        }
+    });
+}
+
+function renderWorkerCounts(){
+    _.each(APIData.workers, function(worker, type) {
+        $('#'+type+'_worker').html(worker.length);
+    });
+}
+
+function renderAdminPanel(){
+    _.each(APIData.configs, function(workers, type) {
+        var first = workers[_(workers).keys()[0]];
+        if(first){
+            $('#'+type+'_worker_admin_panel').html(getTemplate('worker_admin_template',{config: first, type: type}));
+        }else{
+            $('#'+type+'_worker_admin_panel').html('');
+        }
+    });
+}
 
 function parseRequestTimes(req) {
     req.start = new Date(req.start);

@@ -19,6 +19,10 @@ module.exports = Eventer.extend({
 
         var taskID = _.keys(task)[0];
         task = task[taskID];
+        if(!task){
+            console.log('Set task, but it is undefined:',taskID);
+            return;
+        }
         this.Clans.inRegion(task.region,{order: 'id',limit: [task.skip, task.limit]}, function(err, clans) {
             var goodClans = [];
 
@@ -33,7 +37,7 @@ module.exports = Eventer.extend({
                 self.once('clans.'+clan.id+'.updated', function(){
                     done++;
                     if(done == count){
-                        self.emit('finish-task', taskID);
+                        self.emit('finish-task', taskID, {count: done});
                     }
                 });
             });

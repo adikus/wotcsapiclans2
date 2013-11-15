@@ -14,7 +14,20 @@ module.exports = {
             }
         }
     },
+    workerManager: {
+        version: 1,
+        clientLimit: 50
+    },
     worker: {
-        url: 'ws://clanapi.wotcs.com'
+        url: process.env.API_POSTGRE ? 'ws://localhost:3000' : 'ws://clanapi.wotcs.com'
+    },
+    assets: {
+        compileInDev: false,
+        include: [
+            'jquery-1.10.2.min.js',
+            'request.js',
+            'clan_worker.js',
+            'main.js'
+        ]
     }
 };

@@ -1,0 +1,6 @@
+each value, name in config
+    if name != 'paused'
+        input.badge.editable(id=type+'_'+name,value=value,type='text',title=name)
+
+button.btn.btn-xs.btn-primary.pull-right(id=type+'_config_submit') Save
+button.btn.btn-xs.btn-danger(id=type+'_start_stop',class=config.paused ? 'paused':'')= config.paused ? 'Start' : 'Stop'

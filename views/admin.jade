@@ -9,51 +9,36 @@ block content
         .alert.alert-danger= error
     else
 
-        .row#admin_panels
-            each currentWorker, key in workers
-                if key != 'all'
-                    .col-sm-3
-                        .panel.panel-default(id=key+'_admin_panel')
-                            .panel-heading
-                                h3 Worker !{key}
-                            .list-group.condensed
-                                each value, name in currentWorker.config
-                                    .list-group-item.config
-                                        input.badge.editable(id=key+'_'+name,value=value,type='text')
-                                        = name
-                                .list-group-item
-                                    button.btn.btn-primary.pull-right(id=key+'_config_submit') Save
-                                    button.btn.btn-danger(id=key+'_start_stop',class=currentWorker.paused?'paused':'')= currentWorker.paused ? 'Start':'Stop'
-
         .row
-            .col-sm-6
+            .col-sm-6#admin-panel
+                .list-group
+                    each worker, type in workers
+                        .list-group-item
+                            .badge(id=type+'_worker')= worker.length
+                            div.pull-right(id=type+'_worker_admin_panel')
+                            = type.charAt(0).toUpperCase() + type.substring(1)
+            .col-sm-3
                 .list-group
                     .list-group-item
-                        .badge(id=worker+'_finished_clans')= workers[worker].stats.finishedClans
+                        .badge#queue_finished_clans= queue.finishedClans
                         | Finished clans
                     .list-group-item
-                        .badge(id=worker+'_finished_requests')= workers[worker].stats.finishedRequests
-                        | Finished requests
+                        .badge#queue_finished_tasks= queue.finishedTasks
+                        | Finished tasks
                     .list-group-item
-                        .badge(id=worker+'_error_requests')= workers[worker].stats.errorRequests
-                        | Error requests
-                    .list-group-item
-                        .badge(id=worker+'_speed') 0 clans/s
-                        | Loading speed
-            .col-sm-6
+                        .badge#queue_error_tasks= queue.errorTasks
+                        | Error tasks
+            .col-sm-3
                 .list-group
                     .list-group-item
                         .badge#queue_total= queue.totalCount
                         | Total task count
                     .list-group-item
-                        .badge#queue_done= queue.doneCount
-                        | Tasks done
-                    .list-group-item
                         .badge#queue_pending= queue.pending
                         | Tasks pending
                     .list-group-item
-                        .badge#queue_remaining_time - s
-                        | Remaining time
+                        .badge#queue_speed= queue.speed + ' clans/s'
+                        | Loading speed
 
         - completion = queue.doneCount / queue.totalCount * 100
         - pendingCompletion = queue.pending / queue.totalCount * 100
@@ -65,13 +50,13 @@ block content
             .col-sm-6
                 .panel.panel-default
                     .panel-heading
-                        h3 List of requests
-                    .list-group(id=worker+'_request_list')
+                        h3 List of tasks
+                    .list-group#queue_task_list
             .col-sm-6
                 .panel.panel-default
                     .panel-heading
                         h3 Events
-                    .list-group(id=worker+'_event_list')
+                    .list-group#event_list
 
         script.
-            APIData = {worker: '!{worker}', workers: !{JSON.stringify(workers)}}
+            APIData = {workers: !{JSON.stringify(workers)}, admin: true}

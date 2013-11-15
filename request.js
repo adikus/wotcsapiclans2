@@ -3,29 +3,28 @@ var cls = require("./lib/class"),
     http = require("http");
 
 module.exports = Request = cls.Class.extend({
-    init: function(method,id,fields){
+    init: function(method,IDs,fields){
         this.data = '';
 
-        id = id.toString();
-        var host = this.getHost(id.split(',')[0]);
-        var api_id = this.getApiId(id.split(',')[0]);
-        var path = '/2.0/'+method+'/info/?application_id='+api_id+'&clan_id='+id;
+        this.IDs = IDs.toString();
+        this.host = this.getHost(this.IDs.split(',')[0]);
+        this.api_id = this.getApiId(this.IDs.split(',')[0]);
+        this.path = '/2.0/'+method+'/info/?application_id='+this.api_id+'&clan_id='+this.IDs;
         if(fields){
-            path += '&fields='+fields;
+            this.path += '&fields='+fields;
         }
         var	self = this,
             options = {
-                host: host,
+                host: this.host,
                 port: 80,
-                path: path,
+                path: this.path,
                 method: 'GET'
             };
-        this.path = path;
 
         this.request = http.request(options, function(res) {
             var error = res.statusCode != 200;
             if(error && res.statusCode != 503){
-                console.log(res.statusCode, path);
+                console.log(res.statusCode, this.path);
             }
 
             res.on('data', function (chunk) {
@@ -39,9 +38,13 @@ module.exports = Request = cls.Class.extend({
                     if(chunk){
                         self.data += chunk.toString('utf8');
                     }
-                    self.success_callback(self.data);
+                    if(self.success_callback){
+                        self.success_callback(self.data);
+                    }
                 }else {
-                    self.error_callback(res.statusCode);
+                    if(self.error_callback){
+                        self.error_callback(res.statusCode);
+                    }
                 }
             });
         });

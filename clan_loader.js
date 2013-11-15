@@ -18,6 +18,10 @@ module.exports = Eventer.extend({
             start: new Date()
         };
 
+        this.options = {
+            type: 'clans'
+        };
+
         this.newTasks = [];
         this.recentRequests = {};
         this.currentRequests = {};
@@ -51,6 +55,7 @@ module.exports = Eventer.extend({
         }else if(!pause && this.paused){
             this.start(silent);
         }
+        return this.paused && !this.silentPause;
     },
 
     setModels: function(models) {
@@ -73,11 +78,15 @@ module.exports = Eventer.extend({
             };
             var count = clans.length;
             var done = 0;
+            var loaded = 0;
             _.each(clans, function(clan){
-                self.once('clans.'+clan.id+'.updated', function(){
+                self.once('clans.'+clan.id+'.updated', function(event, data){
                     done++;
+                    if(data.clan.status > -1){
+                        loaded++;
+                    }
                     if(done == count){
-                        self.emit('finish-task', taskID);
+                        self.emit('finish-task', taskID, {count: loaded});
                     }
                 });
             });
@@ -91,6 +100,10 @@ module.exports = Eventer.extend({
         });
     },
 
+    getQueueOptions: function() {
+        return this.options;
+    },
+
     getCurrentState: function(options){
         var ret = {paused: this.paused && !this.silentPause, stats: this.stats};
         if(options && options.config){
@@ -100,15 +113,20 @@ module.exports = Eventer.extend({
     },
 
     getConfig: function() {
-        return this.config;
+        var ret = this.config;
+        ret.paused = this.paused && !this.silentPause;
+        return ret;
     },
 
     setConfig: function(config){
-        var self = this;
         _.each(config, function(value, name){
-            self.config[name] = value;
-        });
-        return this.config;
+            if(name != 'paused'){
+                this.config[name] = value;
+            }else{
+                this.pause(value)
+            }
+        },this);
+        return this.getConfig();
     },
 
     addClan: function(id, callback){
@@ -121,7 +139,7 @@ module.exports = Eventer.extend({
         }
         this.once('clans.'+id+'.updated', function() {
             var args = _.toArray(arguments);
-            var event = args.shift();
+            args.shift();
             callback.apply(null, args);
         });
     },
@@ -157,7 +175,7 @@ module.exports = Eventer.extend({
                 }
             }else{
                 this.pause(true, true);
-                this.emit('ready', false);
+                this.emit('ready', this.getQueueOptions(), false);
             }
         }
     },
@@ -166,7 +184,11 @@ module.exports = Eventer.extend({
         this.currentRequests[task.ID] = {
             start: new Date(),
             count: clans.length,
-            task: {ID: task.ID, region: task.task ? Regions.TranslatedRegion[task.task.region] : 'Task Error'}
+            task: {
+                ID: task.ID,
+                region: task.task ? Regions.TranslatedRegion[task.task.region] : 'Task Error',
+                skip: task.task ? task.task.skip/task.task.limit : -1
+            }
         };
         if(!task.task){
             console.log(task);
@@ -177,6 +199,7 @@ module.exports = Eventer.extend({
     finishRequest: function(ID, error){
         if(!this.currentRequests[ID]){
             console.log(ID, this.currentRequests);
+            return;
         }
         this.recentRequests[ID] = this.currentRequests[ID];
         delete this.currentRequests[ID];
@@ -196,45 +219,24 @@ module.exports = Eventer.extend({
         this.emit('finish-request', this.recentRequests[ID], true);
     },
 
-    parseAndCheckData: function(data, IDs){
-        var parsed = JSON.parse(data);
-        if(parsed.status == 'ok'){
-            var allOK = true;
-            _.each(IDs, function(ID){
-                if(parsed.data[ID] === undefined){
-                    allOK = false;
-                }
-            });
-            if(!allOK){
-                console.log(IDs);
-            }
-            return allOK ? parsed : false;
-        }else{
+    parseData: function(data){
+        try{
+            return JSON.parse(data);
+        }catch(e){
             return false;
         }
     },
 
-    splitRequestToFindBadID: function(clans, task){
-        var self = this;
-
-        if(clans.length > 1){
-            var breakpoint = Math.floor(clans.length/2);
-            this.priorityRequests.unshift(function(){
-                var ID = 's'+self.requestID++;
-                self.loadClans(clans.slice(0, breakpoint), {ID: ID, task: task.task});
+    checkData: function(data, IDs) {
+        if(data.status == 'ok'){
+            _.each(IDs, function(ID){
+                if(data.data[ID] === undefined){
+                    return false;
+                }
             });
-            this.priorityRequests.unshift(function(){
-                var ID = 's'+self.requestID++;
-                self.loadClans(clans.slice(breakpoint), {ID: ID, task: task.task});
-            });
+            return true;
         }else{
-            console.log('Bad ID', clans[0].id);
-            clans[0].status = -1;
-            clans[0].save();
-            this.emit('clans.'+clans[0].id+'.updated', {
-                clan: clans[0].getData(),
-                players: []
-            });
+            return false;
         }
     },
 
@@ -247,19 +249,24 @@ module.exports = Eventer.extend({
         var req = new Request('clan',IDs,'description_html,abbreviation,motto,name,members.account_name');
 
         req.onSuccess(function(data) {
-            var parsedData = self.parseAndCheckData(data, IDs);
+            var parsedData = self.parseData(data);
             if(parsedData){
-                self.finishRequest(ID, false);
-                self.processClans(clans, parsedData.data);
+                if(self.checkData(parsedData, IDs)){
+                    self.finishRequest(ID, false);
+                    self.processClans(clans, parsedData.data);
+                }else{
+                    self.finishRequest(ID, parsedData.status + ' ' + JSON.stringify(parsedData.error));
+                    self.emit('fail-task', ID);
+                }
             }else{
-                self.finishRequest(ID, 'API Error');
-                self.splitRequestToFindBadID(clans, task);
+                self.finishRequest(ID, 'Parse Error');
+                self.emit('fail-task', ID);
             }
         });
 
         req.onError(function(error){
             self.finishRequest(ID, error);
-            self.newTasks.unshift(task);
+            self.emit('fail-task', ID);
         });
     },
 
