@@ -19,7 +19,7 @@ module.exports = BaseController.extend({
 
     auth: function (req, res) {
         if(req.body.admin_password == process.env.WOTCS_ADMIN_PASSWORD){
-            this.cookie('role','admin',{signed: true}).redirect('/admin');
+            res.cookie('role','admin',{signed: true}).redirect('/admin');
         }else{
             this.render('login',{error: 'Wrong password', title: 'Login into admin interface'});
         }
