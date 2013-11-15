@@ -207,7 +207,7 @@ ClanWorker = Class.extend({
                 self.finishRequest(task, false);
                 self.send(['process-task', ID, data.data]);
             }else{
-                self.finishRequest(task, 'API Error');
+                self.finishRequest(task, data.status + ' ' + JSON.stringify(data.error));
                 console.log('Report fail', ID);
                 self.send(['emit', 'fail-task', ID]);
             }
@@ -251,14 +251,12 @@ ClanWorker = Class.extend({
 
     checkData: function(parsed, IDs){
         if(parsed.status == 'ok'){
-            var allOK = true;
-            for(var i in IDs){
-                var ID = IDs[i];
-                if(parsed.data[ID] === undefined){
-                    allOK = false;
+            _.each(IDs, function(ID){
+                if(data.data[ID] === undefined){
+                    return false;
                 }
-            }
-            return allOK;
+            });
+            return true;
         }else{
             return false;
         }
