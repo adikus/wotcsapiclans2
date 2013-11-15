@@ -32,6 +32,8 @@ ClanWorker = Class.extend({
         this.interval = null;
         this.paused = false;
 
+        this.lastRequestAt = new Date();
+
         this.waitTime = 2000;
     },
 
@@ -165,12 +167,6 @@ ClanWorker = Class.extend({
         return this.getConfig();
     },
 
-    getLastRequestAt: function() {
-        var last = this.currentRequests[this.currentRequests.length-1];
-        var obj = last || last || this.stats;
-        return obj.start;
-    },
-
     getNumberOfCurrentRequests: function() {
         var count = 0;
         for(var i in this.currentRequests){
@@ -180,7 +176,7 @@ ClanWorker = Class.extend({
     },
 
     step: function() {
-        var sinceLastRequest = (new Date()).getTime() - this.getLastRequestAt().getTime();
+        var sinceLastRequest = (new Date()).getTime() - this.lastRequestAt.getTime();
 
         if(this.getNumberOfCurrentRequests() < this.config.maxActiveRequests
             && sinceLastRequest > Math.max(this.waitTime,this.config.minWaitTime)){
@@ -221,6 +217,7 @@ ClanWorker = Class.extend({
 
     addRequest: function(task){
         var ID = task.ID;
+        this.lastRequestAt = new Date();
         this.currentRequests[ID] = {
             start: new Date(),
             count: task.clans.length,
@@ -251,11 +248,12 @@ ClanWorker = Class.extend({
 
     checkData: function(parsed, IDs){
         if(parsed.status == 'ok'){
-            _.each(IDs, function(ID){
-                if(data.data[ID] === undefined){
+            for(var i in IDs){
+                var ID = IDs[i];
+                if(parsed.data[ID] === undefined){
                     return false;
                 }
-            });
+            }
             return true;
         }else{
             return false;

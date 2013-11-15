@@ -229,11 +229,12 @@ module.exports = Eventer.extend({
 
     checkData: function(data, IDs) {
         if(data.status == 'ok'){
-            _.each(IDs, function(ID){
+            for(var i in IDs){
+                var ID = IDs[i];
                 if(data.data[ID] === undefined){
                     return false;
                 }
-            });
+            }
             return true;
         }else{
             return false;
