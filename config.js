@@ -15,7 +15,7 @@ module.exports = {
         }
     },
     workerManager: {
-        version: 1,
+        version: 2,
         clientLimit: 200
     },
     worker: {

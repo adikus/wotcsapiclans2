@@ -11,6 +11,7 @@ module.exports = Eventer.extend({
         this.pendingQueue = {};
         this.pendingID = 0;
         this.clansPerItem = 30;
+        this.queueTreshold = 50;
 
         this.totalCount = 0;
         this.doneCount = 0;
@@ -154,7 +155,7 @@ module.exports = Eventer.extend({
             callback(ret);
         }
 
-        if(this.toDoQueue.length < _.size(this.pendingQueue)*2 && !this.fillingQueue){
+        if(this.toDoQueue.length < this.queueTreshold && !this.fillingQueue){
             this.fillQueue();
         }
 

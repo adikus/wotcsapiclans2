@@ -134,11 +134,10 @@ module.exports = Clan = BaseModel.extend({
 
     saveMemberChange: function(id, ch) {
         var change = this.app.MemberChanges.new({p: id, c: this.id, ch: ch, u: new Date()});
-        this.app.MemberChanges.where({p:id, c:this.id}, {order: {u: -1}, limit: 1}, function(err, changes) {
+        this.app.MemberChanges.where({p:id}, {order: {u: -1}, limit: 1}, function(err, changes) {
             var lastChange = changes[0];
             if(lastChange){
-                var days = (change.u.getTime() - lastChange.u.getTime())/(1000*3600*24);
-                if(days > 3){
+                if(lastChange.c != change.c || lastChange.ch != change.ch){
                     change.save(['p','c','ch','u']);
                 }else{
                     console.log('Member change already exists for player:',change.p);

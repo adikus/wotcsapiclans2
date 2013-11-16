@@ -256,7 +256,7 @@ module.exports = Eventer.extend({
                     self.finishRequest(ID, false);
                     self.processClans(clans, parsedData.data);
                 }else{
-                    self.finishRequest(ID, parsedData.status + ' ' + JSON.stringify(parsedData.error));
+                    self.finishRequest(ID, parsedData.status + ' ' + JSON.stringify(parsedData.error) + ' ' + req.path);
                     self.emit('fail-task', ID);
                 }
             }else{
