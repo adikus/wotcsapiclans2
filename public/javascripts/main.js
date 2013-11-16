@@ -88,16 +88,16 @@ $(function(){
         });
         system.on('workers.add-worker', function(event, data) {
             APIData.workers = data.workers;
+            renderWorkerCounts();
             if(APIData.admin){
-                renderWorkerCounts();
                 ensureConfigForEveryWorker();
             }
         });
         system.on('workers.remove-worker', function(event, data) {
             APIData.workers = data.workers;
+            renderWorkerCounts();
             if(APIData.admin){
                 delete APIData.configs[data.type][data.ID];
-                renderWorkerCounts();
                 renderAdminPanel();
                 ensureConsistentConfigs();
             }
