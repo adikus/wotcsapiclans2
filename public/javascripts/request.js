@@ -19,8 +19,7 @@ Request = Class.extend({
             success: function(data){
                 self.success_callback(data);
             },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.log('Problem with request:',textStatus, errorThrown);
+            error: function(jqXHR, textStatus) {
                 self.error_callback(textStatus);
             }
         });

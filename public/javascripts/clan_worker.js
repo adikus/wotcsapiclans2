@@ -1,10 +1,12 @@
 ClanWorker = Class.extend({
 
-    init: function() {
-        if (!window.location.origin) {
-            this.url = "ws://" + window.location.hostname + (window.location.port ? ':' + window.location.port: '');
-        }else{
-            this.url = location.origin.replace(/^http/, 'ws');
+    init: function(url, region) {
+        if(!url){
+            if (!window.location.origin) {
+                this.url = "ws://" + window.location.hostname + (window.location.port ? ':' + window.location.port: '');
+            }else{
+                this.url = location.origin.replace(/^http/, 'ws');
+            }
         }
         this.connect();
 
@@ -15,9 +17,9 @@ ClanWorker = Class.extend({
         };
 
         this.options = {
-            version: 1,
+            version: 2,
             type: 'clans',
-            region: 1
+            region: region || 1
         };
 
         this.stats = {
@@ -35,6 +37,7 @@ ClanWorker = Class.extend({
         this.lastRequestAt = new Date();
 
         this.waitTime = 2000;
+        this.sync = {};
     },
 
     connect: function() {
@@ -45,6 +48,7 @@ ClanWorker = Class.extend({
             console.log('Connected');
             self.ws = ws;
 
+            self.sync.start = new Date();
             self.send(['client-worker', self.getQueueOptions()]);
         };
         ws.onmessage = function(event) {
@@ -59,7 +63,7 @@ ClanWorker = Class.extend({
                 console.log('Disconnected - too many clients connected to server');
                 return;
             }
-            console.log('Reconnect in 1s');
+            console.log('Reconnect in 1s', data.reason);
             setTimeout(function(){
                 self.connect();
             },1000);
@@ -101,6 +105,13 @@ ClanWorker = Class.extend({
             }else{
                 this.send(['emit', 'executed.'+ID, {error: 'No such method'}]);
             }
+        }else if(action == 'sync'){
+            var time = msg.shift();
+            self.sync.end = new Date();
+            self.sync.duration = this.sync.end.getTime() - this.sync.start.getTime();
+            self.sync.midpoint = new Date((this.sync.end.getTime() + this.sync.start.getTime())/2);
+            self.sync.server = new Date(time);
+            self.sync.offset = this.sync.server.getTime() - this.sync.midpoint.getTime();
         }else{
             console.log(action, msg);
         }
@@ -185,7 +196,7 @@ ClanWorker = Class.extend({
             }else{
                 this.pause(true, true);
                 console.log('Worker ready');
-                this.send(['emit','ready', false]);
+                this.send(['emit','ready', this.options, false]);
             }
         }
     },
@@ -215,20 +226,27 @@ ClanWorker = Class.extend({
         });
     },
 
+    syncedTime: function() {
+        var time = new Date();
+        time.setTime(time.getTime() + this.sync.offset);
+        return time;
+    },
+
     addRequest: function(task){
         var ID = task.ID;
         this.lastRequestAt = new Date();
         this.currentRequests[ID] = {
-            start: new Date(),
+            start: this.syncedTime(),
             count: task.clans.length,
-            task: {ID: ID, region: task.region, skip: task.skip}
+            task: {ID: ID, region: task.region, skip: task.skip},
+            workerType: 'client'
         };
         this.send(['emit', 'start-request', this.currentRequests[task.ID], true]);
     },
 
     finishRequest: function(task, error){
         var ID = task.ID;
-        this.currentRequests[ID].end = new Date();
+        this.currentRequests[ID].end = this.syncedTime();
         this.currentRequests[ID].duration = this.currentRequests[ID].end.getTime() - this.currentRequests[ID].start.getTime();
         this.currentRequests[ID].error = error;
 

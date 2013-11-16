@@ -5,7 +5,8 @@ block request_template
         else
             .badge= (new Date()).getTime() - req.start.getTime() + ' ms'
         b= '#'+ID
-        = ' (' + req.task.region + req.task.skip + ')'
+        = ' (' + req.task.region + req.task.skip + ') '
+        = req.workerType || ''
         i= req.error?(' - ' + req.error):(' - ' + req.count + ' clans')
         -minutes = req.start.getMinutes().toString();
         -seconds = req.start.getSeconds().toString();

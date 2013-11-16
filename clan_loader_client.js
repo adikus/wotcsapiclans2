@@ -3,8 +3,9 @@ var _ = require("underscore");
 var Regions = require('./shared/regions');
 
 module.exports = Eventer.extend({
-    init: function(){
+    init: function(options){
         this.tasks = {};
+        this.options = options;
     },
 
     setModels: function(models) {
@@ -41,6 +42,11 @@ module.exports = Eventer.extend({
                     }
                 });
             });
+            if(done == count){
+                self.emit('finish-task', taskID, {count: done});
+                self.emit('ready', self.options);
+                return;
+            }
 
             var newTask = {
                 ID: taskID,
@@ -52,6 +58,10 @@ module.exports = Eventer.extend({
             newTask.clans = goodClans;
             self.tasks[taskID] = newTask;
         });
+    },
+
+    getUnfinishedTasks: function() {
+        return _(this.tasks).keys();
     },
 
     processTask: function (ID, data){

@@ -3,6 +3,7 @@ $(function(){
     if(window.APIData){
         APIData.requests = {};
         APIData.waitingForConfig = {};
+        APIData.pause = false;
 
         setInterval(function(){
             for(var i in APIData.requests){
@@ -25,12 +26,14 @@ $(function(){
             $('[id$="task_list"]').find('.list-group-item').remove();
         });
         system.on('workers.*.start-request', function(event, data){
-            var ID = data.task.ID;
-            var req = parseRequestTimes(data);
-            APIData.requests[ID] = req;
-            var $requestList = $('#queue_task_list');
-            $requestList.prepend(getTemplate('request_template',{req: req, ID: ID}));
-            $requestList.find('.list-group-item').slice(100).remove();
+            if(!APIData.pause){
+                var ID = data.task.ID;
+                var req = parseRequestTimes(data);
+                APIData.requests[ID] = req;
+                var $requestList = $('#queue_task_list');
+                $requestList.prepend(getTemplate('request_template',{req: req, ID: ID}));
+                $requestList.find('.list-group-item').slice(100).remove();
+            }
         });
         system.on('workers.*.finish-request', function(event, data){
             var ID = data.task.ID;
@@ -85,18 +88,23 @@ $(function(){
         });
         system.on('workers.add-worker', function(event, data) {
             APIData.workers = data.workers;
-            renderWorkerCounts();
-            ensureConfigForEveryWorker();
+            if(APIData.admin){
+                renderWorkerCounts();
+                ensureConfigForEveryWorker();
+            }
         });
         system.on('workers.remove-worker', function(event, data) {
             APIData.workers = data.workers;
-            delete APIData.configs[data.type][data.ID];
-            renderWorkerCounts();
-            renderAdminPanel();
-            ensureConsistentConfigs();
+            if(APIData.admin){
+                delete APIData.configs[data.type][data.ID];
+                renderWorkerCounts();
+                renderAdminPanel();
+                ensureConsistentConfigs();
+            }
         });
 
         if(APIData.admin){
+            APIData.configs = {local:{}, server:{}, client:{}};
             system.on('connected', function(){
                 system.send(['execute-all','getConfig']);
                 system.on('execute-all.getConfig', function(event, data){
@@ -134,17 +142,12 @@ $(function(){
                 setConfig($(this), !$(this).hasClass('paused'));
             });
         }
-
     }
+    $('#pause_tasks').click(function(){
+        APIData.pause = !APIData.pause;
+        $(this).html(APIData.pause?'Start':'Pause');
+    });
 
-    if($('#admin_panels').length > 0){
-
-        $('#admin_panels').on('change', 'input', function() {
-            $(this).parents('.list-group').find('[id$="_config_submit"]').html('Save');
-        });
-
-
-    }
 });
 
 function setConfig($elem, pause){
