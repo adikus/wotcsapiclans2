@@ -7,8 +7,9 @@ ClanWorker = Class.extend({
             }else{
                 this.url = location.origin.replace(/^http/, 'ws');
             }
+        }else{
+        	this.url = url;
         }
-        this.connect();
 
         this.config = {
             maxActiveRequests: 2,
@@ -21,6 +22,8 @@ ClanWorker = Class.extend({
             type: 'clans',
             region: region || 1
         };
+        
+        this.connect();
 
         this.stats = {
             finishedRequests: 0,
