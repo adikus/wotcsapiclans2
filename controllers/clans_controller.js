@@ -64,32 +64,86 @@ module.exports = BaseController.extend({
             where.u = {$gte: firstDay, $lt: lastDay};
         }
         this.MemberChanges.where(where, {order: {u: -1}}, function(err, changes) {
-            var filteredChanges = [];
-            var playerChanges = {};
+            var filteredChangesReverse = self.filterChanges(changes);
+            changes.reverse()
+            var filteredChanges = self.filterChanges(changes);
 
-            _(changes.reverse()).each(function(change){
-                if(!playerChanges[change.p]){
-                    playerChanges[change.p] = [change];
-                    filteredChanges.push(change);
-                }else{
-                    var last = _(playerChanges[change.p]).last();
-                    if(last.ch != change.ch){
-                        playerChanges[change.p].push(change);
-                        filteredChanges.push(change);
-                    }
-                }
-            });
-
-            var names = {};
-            self.Players.where(['id IN ?', _(playerChanges).keys()], function(err, players) {
-                names = _.object(_(players).pluck('id'),_(players).pluck('name'));
+            self.Players.where(['id IN ?', _(filteredChanges).pluck('p')], function(err, players) {
+                var names = _.object(_(players).pluck('id'),_(players).pluck('name'));
                 _(filteredChanges).each(function(change){ change.name = names[change.p]; });
 
-                res.json({status: 'ok', clan_id: id, changes: _.map(filteredChanges.reverse(), function(change) {
-                    return change.getData();
-                })});
+                var toDo = 0;
+                var cIDs = [];
+                if(req.query.previous){
+                    toDo++;
+                    self.MemberChanges.getPrevious(filteredChanges, function(previous) {
+                        cIDs = _.union(cIDs, _(previous).pluck('c'));
+                        var prev = _.object(_(previous).pluck('p'),previous);
+                        _(filteredChanges).each(function(change){
+                            change.previous = change.ch == 1 ? prev[change.p] : undefined;
+                        });
+                        finish();
+                    });
+                }
+                if(req.query.next){
+                    toDo++;
+                    self.MemberChanges.getNext(filteredChangesReverse, function(next) {
+                        cIDs = _.union(cIDs, _(next).pluck('c'));
+                        var next = _.object(_(next).pluck('p'),next);
+                        _(filteredChanges).each(function(change){
+                            change.next = change.ch == -1 ? next[change.p] : undefined;
+                        });
+                        finish();
+                    });
+                }
+                var finish = _.after(toDo, function(){
+                    if(cIDs.length > 0){
+                        self.Clans.where(['id IN ?', cIDs], function(err, clans) {
+                            var clans = _.object(_(clans).pluck('id'),_(clans).map(function(clan){
+                                return {tag: clan.tag, name: clan.name};
+                            }));
+                            _(filteredChanges).each(function(change){
+                                if(change.previous){
+                                    change.previous.clan = clans[change.previous.c];
+                                }
+                                if(change.next){
+                                    change.next.clan = clans[change.next.c];
+                                }
+                            });
+
+                            res.json({status: 'ok', clan_id: id, changes: _.map(filteredChanges, function(change) {
+                                return change.getData();
+                            })});
+                        });
+                    }else{
+                        res.json({status: 'ok', clan_id: id, changes: _.map(filteredChanges, function(change) {
+                            return change.getData();
+                        })});
+                    }
+                });
+                if(toDo == 0){
+                    finish();
+                }
             });
         });
+    },
+
+    filterChanges: function(changes) {
+        var ret = [];
+        var playerChanges = {};
+        _(changes).each(function(change){
+            if(!playerChanges[change.p]){
+                playerChanges[change.p] = [{u:change.u,ch:change.ch}];
+                ret.push(change);
+            }else{
+                var last = _(playerChanges[change.p]).last();
+                if(last.ch != change.ch){
+                    playerChanges[change.p].push({u:change.u,ch:change.ch});
+                    ret.push(change);
+                }
+            }
+        });
+        return ret.reverse();
     }
 
 });
