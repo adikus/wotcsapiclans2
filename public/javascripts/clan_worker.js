@@ -11,14 +11,10 @@ ClanWorker = Class.extend({
         	this.url = url;
         }
 
-        this.config = {
-            maxActiveRequests: 2,
-            waitMultiplier: 1.25,
-            minWaitTime: 1500
-        };
+        this.config = {};
 
         this.options = {
-            version: 2,
+            version: 3,
             type: 'clans',
             region: region || 1
         };

@@ -53,11 +53,42 @@ module.exports = BaseController.extend({
     },
 
     changes: function (req, res) {
+        var self = this;
         var id = parseInt(req.params.id);
-        this.MemberChanges.where({c: id}, {order: {u: -1}}, function(err, changes) {
-            res.json({status: 'ok', clan_id: id, changes: _.map(changes, function(change) {
-                return change.getData();
-            })});
+        var month = req.params.month;
+        var where = {c: id};
+        if(month !== undefined){
+            var date = new Date();
+            var firstDay = new Date(date.getFullYear(), date.getMonth() - month, 1);
+            var lastDay = new Date(date.getFullYear(), date.getMonth() - month + 1, 1);
+            where.u = {$gte: firstDay, $lt: lastDay};
+        }
+        this.MemberChanges.where(where, {order: {u: -1}}, function(err, changes) {
+            var filteredChanges = [];
+            var playerChanges = {};
+
+            _(changes.reverse()).each(function(change){
+                if(!playerChanges[change.p]){
+                    playerChanges[change.p] = [change];
+                    filteredChanges.push(change);
+                }else{
+                    var last = _(playerChanges[change.p]).last();
+                    if(last.ch != change.ch){
+                        playerChanges[change.p].push(change);
+                        filteredChanges.push(change);
+                    }
+                }
+            });
+
+            var names = {};
+            self.Players.where(['id IN ?', _(playerChanges).keys()], function(err, players) {
+                names = _.object(_(players).pluck('id'),_(players).pluck('name'));
+                _(filteredChanges).each(function(change){ change.name = names[change.p]; });
+
+                res.json({status: 'ok', clan_id: id, changes: _.map(filteredChanges.reverse(), function(change) {
+                    return change.getData();
+                })});
+            });
         });
     }
 

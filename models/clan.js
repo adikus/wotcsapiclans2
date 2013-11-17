@@ -78,13 +78,13 @@ module.exports = Clan = BaseModel.extend({
     },
 
     execChanges: function(add, remove) {
-        var addIDs = _.map(add, function(name, id){ return id; });
+        var addIDs = _.map(add, function(name, id){ return parseInt(id, 10); });
         var self = this;
         if(addIDs.length > 0){
             this.app.models.Players.where(['id IN ?', addIDs], function(err, players) {
                 _.each(add, function(name, id) {
                     id = parseInt(id, 10);
-                    var player = _.findWhere(players, {id: id});
+                    var player = _.findWhere(players, {id: parseInt(id, 10)});
                     self.addPlayer(id, name, player);
                 });
             });

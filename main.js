@@ -3,6 +3,7 @@ var Queue = require('./queue');
 var config = require('./config');
 
 var app = new App(__dirname, config);
+app.setErrorHandler('Errors');
 
 if (app.isMaster){
     var queue = new Queue();

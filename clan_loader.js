@@ -5,11 +5,7 @@ var Regions = require('./shared/regions');
 
 module.exports = Eventer.extend({
     init: function(){
-        this.config = {
-            maxActiveRequests: 4,
-            waitMultiplier: 1.05,
-            minWaitTime: 650
-        };
+        this.config = {};
 
         this.stats = {
             finishedRequests: 0,

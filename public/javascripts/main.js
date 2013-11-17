@@ -2,8 +2,8 @@ $(function(){
 
     if(window.APIData){
         APIData.requests = {};
-        APIData.waitingForConfig = {};
         APIData.pause = false;
+        APIData.configs = {local:{}, server:{}, client:{}};
 
         setInterval(function(){
             for(var i in APIData.requests){
@@ -20,7 +20,6 @@ $(function(){
         system.on('closed',function(){
             APIData.requests = {};
             APIData.workers = {local:[], server:[], client:[]};
-            APIData.configs = {local:{}, server:{}, client:{}};
             renderWorkerCounts();
             renderAdminPanel();
             $('[id$="task_list"]').find('.list-group-item').remove();
@@ -89,57 +88,30 @@ $(function(){
         system.on('workers.add-worker', function(event, data) {
             APIData.workers = data.workers;
             renderWorkerCounts();
-            if(APIData.admin){
-                ensureConfigForEveryWorker();
-            }
         });
         system.on('workers.remove-worker', function(event, data) {
             APIData.workers = data.workers;
             renderWorkerCounts();
-            if(APIData.admin){
-                delete APIData.configs[data.type][data.ID];
-                renderAdminPanel();
-                ensureConsistentConfigs();
-            }
         });
 
         if(APIData.admin){
             APIData.configs = {local:{}, server:{}, client:{}};
             system.on('connected', function(){
-                system.send(['execute-all','getConfig']);
-                system.on('execute-all.getConfig', function(event, data){
-                    APIData.configs = {local:{},server:{},client:{}};
-                    _(data).each(function(worker, ID){
-                        var config = worker.args[0];
-                        if(config.error && !APIData.waitingForConfig[ID]){
-                            console.log(config.error);
-                            APIData.waitingForConfig[ID] = new Date();
-                            system.send(['execute',ID,'getConfig']);
-                        }else{
-                            APIData.configs[worker.type][ID] = config;
-                        }
-                    });
-                    _(APIData.configs).each(function(workers,type){
-                        APIData.workers[type] = _(workers).keys();
-                    });
-                    renderWorkerCounts();
-                    renderAdminPanel();
-                    ensureConsistentConfigs();
-                });
-            });
-            system.on('execute.*.getConfig', function(event, data){
-                var ID = event.split('.')[1];
-                getConfig(ID, data);
+                system.send(['execute-wm','getConfigs']);
             });
             $(document).on('click','[id$="_config_submit"]',function() {
                 setConfig($(this),null);
             });
-            system.on('execute.*.setConfig', function(event, data){
-                var ID = event.split('.')[1];
-                getConfig(ID, data);
-            });
             $(document).on('click', '[id$="_start_stop"]', function() {
                 setConfig($(this), !$(this).hasClass('paused'));
+            });
+            system.on('execute-wm.getConfigs', function(event, configs){
+                APIData.configs = configs;
+                renderAdminPanel();
+            });
+            system.on('execute-wm.setConfigByType', function(event, configs){
+                APIData.configs = configs;
+                renderAdminPanel();
             });
         }
     }
@@ -160,65 +132,7 @@ function setConfig($elem, pause){
     if(pause !== null){
         config.paused = pause;
     }
-    _(APIData.workers[type]).each(function(ID){
-        APIData.waitingForConfig[ID] = new Date();
-        system.send(['execute',ID,'setConfig',config]);
-    });
-}
-
-function getConfig(ID, config){
-    var type = '';
-    _(APIData.workers).each(function(workers, wType){
-        if(_(workers).include(ID)){
-            type = wType;
-        }
-    });
-    if(type == ''){
-        console.log(ID, type, APIData.workers);
-    }else{
-        delete APIData.waitingForConfig[ID];
-        APIData.configs[type][ID] = config;
-        renderAdminPanel();
-        ensureConsistentConfigs();
-    }
-}
-
-function ensureConfigForEveryWorker() {
-    _(APIData.workers).each(function(workers, type){
-        _(workers).each(function(ID){
-            if(!APIData.configs[type][ID]){
-                if(!APIData.waitingForConfig[ID]){
-                    APIData.waitingForConfig[ID] = new Date();
-                    system.send(['execute',ID,'getConfig']);
-                }
-            }
-        });
-    });
-}
-
-function sameConfigs(config1, config2) {
-    for(var i in config1){
-        if(config1.hasOwnProperty(i) && config1[i] != config2[i]){
-            return false;
-        }
-    }
-    return true;
-}
-
-function ensureConsistentConfigs() {
-    _.each(APIData.configs, function(workers, type) {
-        var first = workers[_(workers).keys()[0]];
-        if(first){
-            _(workers).each(function(config, ID){
-                if(!sameConfigs(config, first)){
-                    if(!APIData.waitingForConfig[ID]){
-                        APIData.waitingForConfig[ID] = new Date();
-                        system.send(['execute',ID,'setConfig',first]);
-                    }
-                }
-            });
-        }
-    });
+    system.send(['execute-wm','setConfigByType',type, config]);
 }
 
 function renderWorkerCounts(){
@@ -228,13 +142,8 @@ function renderWorkerCounts(){
 }
 
 function renderAdminPanel(){
-    _.each(APIData.configs, function(workers, type) {
-        var first = workers[_(workers).keys()[0]];
-        if(first){
-            $('#'+type+'_worker_admin_panel').html(getTemplate('worker_admin_template',{config: first, type: type}));
-        }else{
-            $('#'+type+'_worker_admin_panel').html('');
-        }
+    _.each(APIData.configs, function(config, type) {
+        $('#'+type+'_worker_admin_panel').html(getTemplate('worker_admin_template',{config: config, type: type}));
     });
 }
 
