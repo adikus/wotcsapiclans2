@@ -5,8 +5,9 @@ module.exports = {
         SupportDB: {url: process.env.MONGOHQ_URL || "mongodb://localhost/wotcsapi", type: 'Mongo'}
     },
     server: {
-        port: process.env.PORT || 3000,
-        cookieSecret: process.env.WOTCS_SECRET
+        port: process.env.PORT || 3001,
+        cookieSecret: process.env.WOTCS_SECRET,
+        allowCrossDomain: true
     },
     ws: {
         execute: {
