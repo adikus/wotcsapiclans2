@@ -4,7 +4,7 @@ var _ = require('underscore');
 module.exports = BaseController.extend({
 
     index: function (req, res) {
-        console.log(req.headers);
+        console.log(req.headers['sec-websocket-version']);
         var ret = {
             title: 'Clan loader',
             workers: this.workerManager.getWorkersByType(),
