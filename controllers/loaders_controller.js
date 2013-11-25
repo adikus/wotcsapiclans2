@@ -4,6 +4,7 @@ var _ = require('underscore');
 module.exports = BaseController.extend({
 
     index: function (req, res) {
+        console.log(req.headers);
         var ret = {
             title: 'Clan loader',
             workers: this.workerManager.getWorkersByType(),
