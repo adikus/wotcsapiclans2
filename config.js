@@ -23,8 +23,7 @@ module.exports = {
             local: {
                 maxActiveRequests: 4,
                 waitMultiplier: 1.05,
-                minWaitTime: 650,
-                paused: true
+                minWaitTime: 650
             },
             server: {
                 maxActiveRequests: 4,
