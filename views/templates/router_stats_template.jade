@@ -1,0 +1,5 @@
+block router_stats_template
+    each requests, route in routes
+        .list-group-item
+            .badge= requests + ' reqs/min'
+            = route

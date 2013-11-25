@@ -4,6 +4,7 @@ module.exports = {
         '/admin':'loaders#admin',
         '/login':'loaders#login',
         '/worker':'loaders#worker',
+        '/queue/client':'queue#client',
         '/clans/:id': 'clans#index',
         '/clans/:id/changes': 'clans#changes',
         '/clans/:id/changes/:month': 'clans#changes'

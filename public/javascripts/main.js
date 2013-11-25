@@ -15,7 +15,7 @@ $(function(){
             }
         },100);
 
-        window.system = new WOTcsSystem(['workers.*', 'queue.*']);
+        window.system = new WOTcsSystem(['workers.*', 'queue.*', 'router.stats']);
 
         system.on('closed',function(){
             APIData.requests = {};
@@ -23,6 +23,9 @@ $(function(){
             renderWorkerCounts();
             renderAdminPanel();
             $('[id$="task_list"]').find('.list-group-item').remove();
+        });
+        system.on('router.stats', function(event, routes) {
+            $('#router_stats').html(getTemplate('router_stats_template',{routes: routes}));
         });
         system.on('workers.*.start-request', function(event, data){
             if(!APIData.pause){

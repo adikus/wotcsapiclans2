@@ -7,5 +7,5 @@ app.setErrorHandler('Errors');
 
 if (app.isMaster){
     var queue = new Queue();
-    app.setupWorkers(4, 'clan_loader', 'clan_loader_client', queue);
+    app.setupWorkers(3, 'clan_loader', 'clan_loader_client', queue);
 }

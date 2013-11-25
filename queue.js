@@ -40,8 +40,8 @@ module.exports = Eventer.extend({
     },
 
     fillQueue: function() {
-        if(!this.models){
-            return false;
+        if(!this.models || this.fillingQueue){
+            return;
         }
         var self = this;
         this.fillingQueue = true;
@@ -72,7 +72,8 @@ module.exports = Eventer.extend({
                     tempQueues[region].push({
                         skip: i*self.clansPerItem,
                         limit: self.clansPerItem,
-                        region: region
+                        region: region,
+                        retryCount: 0
                     });
                 }
                 buildQueue();
@@ -109,8 +110,12 @@ module.exports = Eventer.extend({
 
     tooManyErrors: function(i) {
         var task = this.toDoQueue[i];
-        var region = task.region;
-        return this.regionStats[region].errors.length > 15;
+        var errors = this.regionStats[task.region].errors;
+        if(errors.length == 0){
+            return false;
+        }
+        var duration = (new Date()).getTime() - _(errors).first().getTime();
+        return errors.length/duration*1000 > 0.25;
     },
 
     notInRegion: function(i, region) {
@@ -199,7 +204,12 @@ module.exports = Eventer.extend({
             return;
         }
         this.errorTasks++;
-        this.toDoQueue.unshift(this.pendingQueue[ID]);
+        this.pendingQueue[ID].retryCount++;
+        if(this.pendingQueue[ID].retryCount < 3){
+            this.toDoQueue.unshift(this.pendingQueue[ID]);
+        }else{
+            console.log('Too many retries:',this.pendingQueue[ID]);
+        }
         var region = this.pendingQueue[ID].region;
         delete this.pendingQueue[ID];
         this.regionStats[region].errors.push(new Date());
