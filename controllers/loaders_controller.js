@@ -5,7 +5,7 @@ module.exports = BaseController.extend({
 
     index: function (req, res) {
         if(req.headers['sec-websocket-version']){
-            return;
+            res.json({status:'ok'});
         }
         var ret = {
             title: 'Clan loader',
