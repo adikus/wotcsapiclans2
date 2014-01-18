@@ -60,6 +60,10 @@ module.exports = Clan = BaseModel.extend({
                 remove.push(comparison.loaded);
             }
         });
+        if(_(data.members).size() == 0){
+            console.log('Received empty members list for', this.tag, this.id);
+            remove = [];
+        }
         self.execChanges(add, remove);
 
         self.save(['tag', 'name', 'motto', 'description', 'status']);
@@ -143,7 +147,11 @@ module.exports = Clan = BaseModel.extend({
                     console.log('Member change already exists for player:',change.p);
                 }
             }else{
-                change.save(['p','c','ch','u']);
+                change.save(['p','c','ch','u'], function(err){
+                    if(err){
+                        console.log(err);
+                    }
+                });
             }
         });
     }

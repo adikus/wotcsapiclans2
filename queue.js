@@ -204,17 +204,30 @@ module.exports = Eventer.extend({
             return;
         }
         this.errorTasks++;
-        this.pendingQueue[ID].retryCount++;
-        if(this.pendingQueue[ID].retryCount < 3){
-            this.toDoQueue.unshift(this.pendingQueue[ID]);
-        }else{
-            console.log('Too many retries:',this.pendingQueue[ID]);
+        if(this.pendingQueue[ID].limit == 1){
+            this.pendingQueue[ID].retryCount++;
+            if(this.pendingQueue[ID].retryCount < 3){
+                this.toDoQueue.unshift(this.pendingQueue[ID]);
+            }else{
+                console.log('Too many retries:',this.pendingQueue[ID]);
+            }
+        } else {
+            this.splitTask(this.pendingQueue[ID]);
         }
         var region = this.pendingQueue[ID].region;
         delete this.pendingQueue[ID];
         this.regionStats[region].errors.push(new Date());
         this.calcSpeed();
         this.emit('update', this.getCurrentStatus(), true);
+    },
+
+    splitTask: function(task) {
+        var task1 = {skip: task.skip, limit: Math.round(task.limit/2), region: task.region, retryCount: 0};
+        var task2 = {skip: task.skip+task1.limit, limit: task.limit-task1.limit, region: task.region, retryCount: 0};
+        //console.log('Split',task,'into',task1,task2);
+        this.toDoQueue.unshift(task1);
+        this.toDoQueue.unshift(task2);
+        this.totalCount++;
     }
 
 });

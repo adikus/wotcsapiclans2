@@ -49,7 +49,6 @@ module.exports = BaseCollection.extend({
                 return self.new(change, true);
             }));
         });
-        console.log(JSON.stringify(where));
     }
 
 });
