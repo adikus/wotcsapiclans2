@@ -7,6 +7,7 @@ module.exports = {
         '/queue/client':'queue#client',
         '/clans/:id': 'clans#index',
         '/clans/:id/changes': 'clans#changes',
+        '/players/:id/changes': 'players#changes',
         '/clans/:id/changes/:month': 'clans#changes'
     },
     post: {
