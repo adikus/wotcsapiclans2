@@ -1,11 +1,12 @@
-var BaseCollection = require('wotcs-api-system').BaseCollection('Mongo');
+var BaseCollection = require('wotcs-api-system').BaseCollection('PG');
 var _ = require('underscore');
 
 module.exports = BaseCollection.extend({
 
-    dbName: 'ChangeDB',
+    dbName: 'MainDB',
+    tableName: 'changes',
 
-    getPrevious: function(changes, callback) {
+    getPreviousMonog: function(changes, callback) {
         var where = {$or: []};
         var self = this;
         _(changes).each(function(change){
@@ -28,7 +29,7 @@ module.exports = BaseCollection.extend({
         });
     },
 
-    getNext: function(changes, callback) {
+    getNextMongo: function(changes, callback) {
         var where = {$or: []};
         var self = this;
         _(changes).each(function(change){

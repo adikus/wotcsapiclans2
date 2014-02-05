@@ -1,7 +1,6 @@
 module.exports = {
     db: {
         MainDB: {url: process.env.API_POSTGRE || process.env.DATABASE_URL, type: 'PG'},
-        ChangeDB: {url: process.env.WOTCS_CLANDB, type: 'Mongo'},
         SupportDB: {url: process.env.MONGOHQ_URL || "mongodb://localhost/wotcsapi", type: 'Mongo'}
     },
     server: {

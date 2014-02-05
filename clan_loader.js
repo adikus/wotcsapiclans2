@@ -243,7 +243,7 @@ module.exports = Eventer.extend({
         var IDs = _.map(clans, function(clan){return clan.id});
 
         this.addRequest(task, clans);
-        var req = new Request('clan',IDs,'description_html,abbreviation,motto,name,members.account_name');
+        var req = new Request('clan',IDs,'description_html,abbreviation,motto,name,members.account_name,members.created_at');
 
         req.onSuccess(function(data) {
             var parsedData = self.parseData(data);

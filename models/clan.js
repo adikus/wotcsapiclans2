@@ -1,6 +1,7 @@
 var BaseModel = require('wotcs-api-system').BaseModel('PG');
 var _ = require('underscore');
 var Regions = require('../shared/regions');
+var fs = require('fs');
 
 module.exports = Clan = BaseModel.extend({
 
@@ -55,7 +56,7 @@ module.exports = Clan = BaseModel.extend({
         var remove = [];
         _.each(playersComparison, function(comparison, id) {
             if(comparison.parsed && !comparison.loaded){
-                add[id] = comparison.parsed.account_name;
+                add[id] = {name: comparison.parsed.account_name, joined_at: comparison.parsed.created_at }
             }else if(!comparison.parsed && comparison.loaded){
                 remove.push(comparison.loaded);
             }
@@ -63,9 +64,12 @@ module.exports = Clan = BaseModel.extend({
         if(_(data.members).size() == 0){
             console.log('Received empty members list for', this.tag, this.id);
             remove = [];
+        }else{
+            self.execChanges(add, remove);
+            self.createChanges(data.members);
         }
-        self.execChanges(add, remove);
 
+        self.forceChange = true;
         self.save(['tag', 'name', 'motto', 'description', 'status']);
 
         var players = [];
@@ -82,14 +86,14 @@ module.exports = Clan = BaseModel.extend({
     },
 
     execChanges: function(add, remove) {
-        var addIDs = _.map(add, function(name, id){ return parseInt(id, 10); });
+        var addIDs = _.map(add, function(member, id){ return parseInt(id, 10); });
         var self = this;
         if(addIDs.length > 0){
             this.app.models.Players.where(['id IN ?', addIDs], function(err, players) {
-                _.each(add, function(name, id) {
+                _.each(add, function(member, id) {
                     id = parseInt(id, 10);
                     var player = _.findWhere(players, {id: parseInt(id, 10)});
-                    self.addPlayer(id, name, player);
+                    self.addPlayer(id, member, player);
                 });
             });
         }
@@ -98,7 +102,7 @@ module.exports = Clan = BaseModel.extend({
         });
     },
 
-    addPlayer: function(id, name, player) {
+    addPlayer: function(id, member, player) {
         var listOfAttributes = [];
         if(player){
             player.clan_id = this.id;
@@ -106,20 +110,19 @@ module.exports = Clan = BaseModel.extend({
         }else{
             player = this.app.models.Players.new({
                 id: id,
-                name: name,
+                name: member.name,
                 clan_id: this.id,
                 status: 0
             });
             listOfAttributes = ['clan_id','name','status'];
         }
         if(this.members.length > 0){
-            console.log('Add player to clan', this.tag, ':', name, id);
+            console.log('Add player to clan', this.tag, ':', member.name, id);
             this.emit('add-player', {
                 id: id,
-                name: name,
+                name: member.name,
                 clan: {name: this.name, tag: this.tag, id: this.id, region: Regions.TranslatedRegion[Regions.getRegion(this.id)]}
             }, true);
-            this.saveMemberChange(id, 1);
         }
         player.save(listOfAttributes);
     },
@@ -133,27 +136,107 @@ module.exports = Clan = BaseModel.extend({
         }, true);
         player.clan_id = 0;
         player.save(['clan_id']);
-        this.saveMemberChange(player.id, -1);
     },
 
-    saveMemberChange: function(id, ch) {
-        var change = this.app.MemberChanges.new({p: id, c: this.id, ch: ch, u: new Date()});
-        this.app.MemberChanges.where({p:id}, {order: {u: -1}, limit: 1}, function(err, changes) {
-            var lastChange = changes[0];
-            if(lastChange){
-                if(lastChange.c != change.c || lastChange.ch != change.ch){
-                    change.save(['p','c','ch','u']);
-                }else{
-                    console.log('Member change already exists for player:',change.p);
-                }
-            }else{
-                change.save(['p','c','ch','u'], function(err){
-                    if(err){
-                        console.log(err);
+    createChanges: function(members) {
+        var self = this;
+        var player_ids = _(members).chain().keys().map(function(id) {return parseInt(id, 10);}).value();
+        fs.readFile('queries/last_player_changes.sql', function(err, data) {
+            var sql = _(data.toString()).template({ player_ids: player_ids, clan_id: self.id });
+            self.app.MemberChanges.query(sql, function(err, changes) {
+                var comparisons = {};
+                _(members).each(function(member, id) {
+                    comparisons[parseInt(id,10)] = {inClan: member};
+                });
+                _(changes).each(function(change) {
+                    if(!comparisons[change.player_id]){ comparisons[change.player_id] = {}; }
+                    comparisons[change.player_id].joined = true;
+                });
+                _(comparisons).each(function(comparison, id) {
+                    var change = self.app.MemberChanges.new({
+                        player_id: id,
+                        clan_id: self.id
+                    });
+                    if(comparison.inClan && !comparison.joined){
+                        change.joined = true;
+                        change.changed_at = (new Date(comparison.inClan.created_at*1000)).toISOString();
+                        change.changed_at_max = (new Date(comparison.inClan.created_at*1000)).toISOString();
+                    }else if(!comparison.inClan && comparison.joined){
+                        change.joined = false;
+                        change.changed_at = (new Date()).toISOString();
+                        change.changed_at_max = this.updated_at.toISOString();
+                    }
+                    if(change.joined != undefined){
+                        change.save(['player_id','clan_id','joined','changed_at','changed_at_max'], function(err){
+                            if(err){
+                                console.log(err);
+                            }
+                        });
                     }
                 });
+            });
+        });
+    },
+
+    loadOldChanges: function() {
+        var self = this;
+        this.app.OldMemberChanges.where({c: this.id}, {order: {u: 1}}, function(err, changes) {
+            var filteredChanges = self.filterChanges(changes);
+            var overallChanges = {};
+            self.app.MemberChanges.where(['clan_id = ?', self.id], {order: 'changed_at'}, function(err, PGChanges) {
+                _(filteredChanges).each(function(change) {
+                    if(!overallChanges[change.p]){overallChanges[change.p] = [];}
+                    overallChanges[change.p].push(self.app.MemberChanges.new({
+                        player_id: change.p, clan_id: change.c, joined: change.ch > 0, changed_at: (new Date(change.u)).toISOString()
+                    }));
+                });
+                _(PGChanges).each(function(change) {
+                    if(!overallChanges[change.player_id]){overallChanges[change.player_id] = [];}
+                    overallChanges[change.player_id].push(change);
+                });
+                overallChanges = _(overallChanges).map(function(changes) {
+                    return changes.sort(function(ch1, ch2) {
+                        return (new Date(ch2.changed_at)).getTime() - (new Date(ch1.changed_at)).getTime();
+                    });
+                });
+                _(overallChanges).each(function(changes) {
+                    for(var i in changes){
+                        if(changes[i] && changes[i+1] && changes[i].joined == changes[i+1].joined){
+                            if(changes[i+1].id){
+                                self.app.MemberChanges.query('DELETE FROM changes WHERE id = '+changes[i+1].id, function(err){
+                                    if(err)console.log(err);
+                                });
+                            }
+                            changes[i+1] = null;
+                        }else if(changes[i] && changes[i].newRecord){
+                            changes[i].save(['player_id','clan_id','joined','changed_at'], function(err){
+                                if(err){
+                                    console.log(err);
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+        });
+    },
+
+    filterChanges: function(changes) {
+        var ret = [];
+        var playerChanges = {};
+        _(changes).each(function(change){
+            if(!playerChanges[change.p]){
+                playerChanges[change.p] = [{u:change.u,ch:change.ch}];
+                ret.push(change);
+            }else{
+                var last = _(playerChanges[change.p]).last();
+                if(last.ch != change.ch){
+                    playerChanges[change.p].push({u:change.u,ch:change.ch});
+                    ret.push(change);
+                }
             }
         });
+        return ret.reverse();
     }
 
 });
