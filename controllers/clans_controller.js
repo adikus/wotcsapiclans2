@@ -105,7 +105,7 @@ module.exports = BaseController.extend({
                         players_where_next.push('player_id = '+change.player_id+" AND changed_at > '"+change.changed_at.toISOString()+"'");
                     }
                 });
-                if(players_where_next.lenth == 0){
+                if(players_where_next.length == 0){
                     finish();
                 }else{
                     fs.readFile('queries/next_changes.sql', function(err, template) {
