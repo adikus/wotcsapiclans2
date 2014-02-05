@@ -74,9 +74,9 @@ module.exports = BaseController.extend({
                         var min = limits.rows[0].min;
                         var max = limits.rows[0].max;
                         var now = new Date();
-                        var months = (now.getFullYear() - min.getFullYear()) * 12 - min.getMonth() + now.getMonth();
+                        var months = min ? (now.getFullYear() - min.getFullYear()) * 12 - min.getMonth() + now.getMonth() : 0;
                         ret.nav = {max: months};
-                        months = (now.getFullYear() - max.getFullYear()) * 12 - max.getMonth() + now.getMonth();
+                        months = max ? (now.getFullYear() - max.getFullYear()) * 12 - max.getMonth() + now.getMonth() : 0;
                         ret.nav.min = months;
                         ret.nav.current = month;
                         finish();
