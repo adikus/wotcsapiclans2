@@ -206,7 +206,7 @@ ClanWorker = Class.extend({
         var IDs = task.clans;
 
         this.addRequest(task);
-        var req = new Request('clan',IDs,'description_html,abbreviation,motto,name,members.account_name');
+        var req = new Request('clan',IDs,'description_html,abbreviation,motto,name,members.account_name,members.created_at');
 
         req.onSuccess(function(data) {
             if(self.checkData(data, IDs)){

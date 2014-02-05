@@ -17,12 +17,12 @@ module.exports = BaseController.extend({
                 return _.pick(player, 'id', 'name');
             });
             var ret = {status: 'ok', clan_id: id, clan: clan, members: members};
-            self.store(ret, 10*60*1000);
+            /*self.store(ret, 10*60*1000);
             self.updateStoreOn('workers.*.clans.'+id+'.updated', function(event, data) {
                 console.log('Updated data store for clan',id);
                 this.data.clan = data.clan;
                 this.data.members = data.players;
-            });
+            });*/
             res.json(ret);
         };
 
