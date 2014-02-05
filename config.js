@@ -17,7 +17,7 @@ module.exports = {
     },
     workerManager: {
         version: 4,
-        clientLimit: 12,
+        clientLimit: 0,
         configs: {
             local: {
                 maxActiveRequests: 4,
