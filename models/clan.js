@@ -70,6 +70,7 @@ module.exports = Clan = BaseModel.extend({
         }
 
         self.forceChange = true;
+        self.updated_at_before = self.updated_at;
         self.save(['tag', 'name', 'motto', 'description', 'status']);
 
         var players = [];
@@ -140,38 +141,35 @@ module.exports = Clan = BaseModel.extend({
 
     createChanges: function(members) {
         var self = this;
-        var player_ids = _(members).chain().keys().map(function(id) {return parseInt(id, 10);}).value();
         fs.readFile('queries/last_player_changes.sql', function(err, data) {
-            var sql = _(data.toString()).template({ player_ids: player_ids, clan_id: self.id });
+            var sql = _(data.toString()).template({ clan_id: self.id });
             self.app.MemberChanges.query(sql, function(err, changes) {
                 var comparisons = {};
                 _(members).each(function(member, id) {
                     comparisons[parseInt(id,10)] = {inClan: member};
                 });
                 _(changes).each(function(change) {
-                    if(!comparisons[change.player_id]){ comparisons[change.player_id] = {}; }
-                    comparisons[change.player_id].joined = true;
+                    var id = parseInt(change.player_id,10);
+                    if(!comparisons[id]){ comparisons[id] = {}; }
+                    comparisons[id].change = change;
                 });
                 _(comparisons).each(function(comparison, id) {
                     var change = self.app.MemberChanges.new({
                         player_id: id,
                         clan_id: self.id
                     });
-                    if(comparison.inClan && !comparison.joined){
-                        change.joined = true;
-                        change.changed_at = (new Date(comparison.inClan.created_at*1000)).toISOString();
-                        change.changed_at_max = (new Date(comparison.inClan.created_at*1000)).toISOString();
-                    }else if(!comparison.inClan && comparison.joined){
-                        change.joined = false;
-                        change.changed_at = (new Date()).toISOString();
-                        change.changed_at_max = this.updated_at.toISOString();
-                    }
-                    if(change.joined != undefined){
-                        change.save(['player_id','clan_id','joined','changed_at','changed_at_max'], function(err){
-                            if(err){
-                                console.log(err);
+                    if(comparison.inClan){
+                        if(comparison.change){
+                            comparison.change.compare(id, self.id, comparison, change);
+                        }else{
+                            change.joinAt(new Date(comparison.inClan.created_at*1000));
+                        }
+                    }else{
+                        if(comparison.change.joined){
+                            if(comparison.change.clan_id == self.id){
+                                change.leaveAt(new Date(), new Date(self.updated_at_before));
                             }
-                        });
+                        }
                     }
                 });
             });
