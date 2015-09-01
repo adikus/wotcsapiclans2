@@ -52,7 +52,6 @@ module.exports = Eventer.extend({
             tempQueues.sort(function(a, b) {
                 return a.length - b.length;
             });
-            console.log(_(tempQueues).map(function(q, k) { return [k, q && q.length]; }));
             _.each(tempQueues, function(q) {
                 if(q){
                     queue = queue.length > 0 ? self.mixArrays(q, queue) : q;
@@ -71,7 +70,6 @@ module.exports = Eventer.extend({
         _.each(Regions.supportedRegions, function(region) {
             this.Clans.countInRegion(region, function(err, count) {
                 tempQueues[region] = [];
-                console.log("adding ", count/self.clansPerItem, "into", region);
                 for(var i = 0; i < count/self.clansPerItem; i++){
                     tempQueues[region].push({
                         skip: i*self.clansPerItem,

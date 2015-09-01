@@ -64,12 +64,12 @@ module.exports = BaseController.extend({
             var month_where = "changed_at > '"+firstDay.toISOString()+"' AND changed_at < '"+lastDay.toISOString()+"'";
         }
         fs.readFile('queries/select_changes.sql', function(err, template) {
-            var sql = _(template.toString()).template({clan_id: id, month_where: month_where || 'true'});
+            var sql = _(template.toString()).template()({clan_id: id, month_where: month_where || 'true'});
             self.MemberChanges.query(sql, function(err, changes) {
                 var ret = {changes: changes};
                 var finish = _.after(3, function(){self.combineChanges(ret)});
                 fs.readFile('queries/change_limits.sql', function(err, template) {
-                    var sql = _(template.toString()).template({clan_id: id});
+                    var sql = _(template.toString()).template()({clan_id: id});
                     self.MemberChanges.db.query(sql, function(err, limits) {
                         var min = limits.rows[0].min;
                         var max = limits.rows[0].max;
@@ -92,7 +92,7 @@ module.exports = BaseController.extend({
                     finish();
                 }else{
                     fs.readFile('queries/prev_changes.sql', function(err, template) {
-                        var sql = _(template.toString()).template({clan_id: id, where: players_where.join(' OR ')});
+                        var sql = _(template.toString()).template()({clan_id: id, where: players_where.join(' OR ')});
                         self.MemberChanges.query(sql, function(err, prev) {
                             ret.prev = prev;
                             finish();
@@ -109,7 +109,7 @@ module.exports = BaseController.extend({
                     finish();
                 }else{
                     fs.readFile('queries/next_changes.sql', function(err, template) {
-                        var sql = _(template.toString()).template({clan_id: id, where: players_where_next.join(' OR ')});
+                        var sql = _(template.toString()).template()({clan_id: id, where: players_where_next.join(' OR ')});
                         self.MemberChanges.query(sql, function(err, next) {
                             ret.next = next;
                             finish();

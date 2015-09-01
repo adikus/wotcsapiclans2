@@ -142,7 +142,7 @@ module.exports = Clan = BaseModel.extend({
     createChanges: function(members) {
         var self = this;
         fs.readFile('queries/last_player_changes.sql', function(err, data) {
-            var sql = _(data.toString()).template({ clan_id: self.id });
+            var sql = _(data.toString()).template()({ clan_id: self.id });
             self.app.MemberChanges.query(sql, function(err, changes) {
                 var comparisons = {};
                 _(members).each(function(member, id) {
