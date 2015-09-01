@@ -11,5 +11,9 @@
     "mongodb": "*",
     "underscore": "*",
     "wotcs-api-system": "0.1.4"
+  },
+  "engines": {
+    "node": "0.10.x",
+    "npm": "2.4.x"
   }
 }
