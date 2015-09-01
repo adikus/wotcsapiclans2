@@ -52,6 +52,7 @@ module.exports = Eventer.extend({
             tempQueues.sort(function(a, b) {
                 return a.length - b.length;
             });
+            console.log(_(tempQueues).keys());
             _.each(tempQueues, function(q) {
                 queue = queue.length > 0 ? self.mixArrays(q, queue) : q;
             });
