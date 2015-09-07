@@ -33,7 +33,7 @@ module.exports = Clan = BaseModel.extend({
             return;
         }
 
-        this.tag = data.abbreviation;
+        this.tag = data.tag;
         this.name = data.name;
         this.motto = data.motto;
         this.description = data.description_html;
@@ -56,7 +56,7 @@ module.exports = Clan = BaseModel.extend({
         var remove = [];
         _.each(playersComparison, function(comparison, id) {
             if(comparison.parsed && !comparison.loaded){
-                add[id] = {name: comparison.parsed.account_name, joined_at: comparison.parsed.created_at }
+                add[id] = {name: comparison.parsed.account_name, joined_at: comparison.parsed.joined_at }
             }else if(!comparison.parsed && comparison.loaded){
                 remove.push(comparison.loaded);
             }
@@ -162,7 +162,7 @@ module.exports = Clan = BaseModel.extend({
                         if(comparison.change){
                             comparison.change.compare(id, self.id, comparison, change);
                         }else{
-                            change.joinAt(new Date(comparison.inClan.created_at*1000));
+                            change.joinAt(new Date(comparison.inClan.joined_at*1000));
                         }
                     }else{
                         if(comparison.change.joined){

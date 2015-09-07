@@ -6,10 +6,12 @@ module.exports = Request = cls.Class.extend({
     init: function(method,IDs,fields){
         this.data = '';
 
+        var namespace = method == 'clans' ? 'wgn' : 'wot';
+
         this.IDs = IDs.toString();
         this.host = this.getHost(this.IDs.split(',')[0]);
         this.api_id = this.getApiId(this.IDs.split(',')[0]);
-        this.path = '/2.0/'+method+'/info/?application_id='+this.api_id+'&clan_id='+this.IDs;
+        this.path = '/'+namespace+'/'+method+'/info/?application_id='+this.api_id+'&clan_id='+this.IDs;
         if(fields){
             this.path += '&fields='+fields;
         }
