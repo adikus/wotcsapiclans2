@@ -34,7 +34,7 @@ module.exports = BaseModel.extend({
 
     compare: function(id, clan_id, comparison, change) {
         var self = this;
-        var joined_at = new Date(comparison.inClan.created_at*1000);
+        var joined_at = new Date(comparison.inClan.joined_at*1000);
         var changed_at = new Date(comparison.change.changed_at);
         var diff = joined_at.getTime() - changed_at.getTime();
         if(comparison.change.joined){
