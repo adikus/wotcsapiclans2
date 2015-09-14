@@ -40,8 +40,8 @@ module.exports = Clan = BaseModel.extend({
         this.status = 1;
 
         var playersComparison = {};
-        _.each(data.members, function(member, id){
-            id = parseInt(id);
+        _.each(data.members, function(member){
+            var id = parseInt(member.account_id);
             playersComparison[id] = {};
             playersComparison[id].parsed = member;
         });
@@ -107,7 +107,8 @@ module.exports = Clan = BaseModel.extend({
         var listOfAttributes = [];
         if(player){
             player.clan_id = this.id;
-            listOfAttributes = ['clan_id'];
+            player.name = member.name;
+            listOfAttributes = ['clan_id', 'name'];
         }else{
             player = this.app.models.Players.new({
                 id: id,
@@ -115,7 +116,7 @@ module.exports = Clan = BaseModel.extend({
                 clan_id: this.id,
                 status: 0
             });
-            listOfAttributes = ['clan_id','name','status'];
+            listOfAttributes = ['id', 'clan_id','name','status'];
         }
         if(this.members.length > 0){
             console.log('Add player to clan', this.tag, ':', member.name, id);
@@ -145,7 +146,8 @@ module.exports = Clan = BaseModel.extend({
             var sql = _(data.toString()).template()({ clan_id: self.id });
             self.app.MemberChanges.query(sql, function(err, changes) {
                 var comparisons = {};
-                _(members).each(function(member, id) {
+                _(members).each(function(member) {
+                    var id = member.account_id;
                     comparisons[parseInt(id,10)] = {inClan: member};
                 });
                 _(changes).each(function(change) {
