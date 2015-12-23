@@ -41,9 +41,11 @@ module.exports = Clan = BaseModel.extend({
 
         var playersComparison = {};
         _.each(data.members, function(member){
-            var id = parseInt(member.account_id);
-            playersComparison[id] = {};
-            playersComparison[id].parsed = member;
+            if(member){
+                var id = parseInt(member.account_id);
+                playersComparison[id] = {};
+                playersComparison[id].parsed = member;
+            }
         });
         _.each(this.members, function(member){
             var id = parseInt(member.id);
