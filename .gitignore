@@ -6,3 +6,4 @@ node_modules
 public/stylesheets/style.css
 mem
 tmp
+csv_export*
