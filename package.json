@@ -10,7 +10,7 @@
     "squel": "5.5.x",
     "mongodb": "2.2.x",
     "underscore": "*",
-    "wotcs-api-system": "0.1.7"
+    "wotcs-api-system": "0.1.9"
   },
   "engines": {
     "node": "6.x.x",
