@@ -6,7 +6,7 @@
     "start": "node main.js"
   },
   "dependencies": {
-    "pg": "2.11",
+    "pg": "*",
     "squel": "*",
     "mongodb": "*",
     "underscore": "*",
