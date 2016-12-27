@@ -1,14 +1,14 @@
 {
   "name": "wotcsapiclans2",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "scripts": {
     "start": "node main.js"
   },
   "dependencies": {
-    "pg": "*",
-    "squel": "*",
-    "mongodb": "*",
+    "pg": "6.1.x",
+    "squel": "5.5.x",
+    "mongodb": "2.2.x",
     "underscore": "*",
     "wotcs-api-system": "0.1.6"
   },
