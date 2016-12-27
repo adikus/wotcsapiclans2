@@ -3,5 +3,6 @@ node_modules
 .project
 .settings
 .idea
+public/stylesheets/style.css
 mem
 tmp
