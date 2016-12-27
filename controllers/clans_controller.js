@@ -65,12 +65,16 @@ module.exports = BaseController.extend({
         }
         fs.readFile('queries/select_changes.sql', function(err, template) {
             var sql = _(template.toString()).template()({clan_id: id, month_where: month_where || 'true'});
+            var sql_start = new Date();
             self.MemberChanges.query(sql, function(err, changes) {
+                console.log('select_changes query took', (new Date()).getTime() - sql_start.getTime(), 'ms');
                 var ret = {changes: changes};
                 var finish = _.after(3, function(){self.combineChanges(ret)});
                 fs.readFile('queries/change_limits.sql', function(err, template) {
                     var sql = _(template.toString()).template()({clan_id: id});
+                    var sql_start = new Date();
                     self.MemberChanges.db.query(sql, function(err, limits) {
+                        console.log('change_limits query took', (new Date()).getTime() - sql_start.getTime(), 'ms');
                         var min = limits.rows[0].min;
                         var max = limits.rows[0].max;
                         var now = new Date();
@@ -93,7 +97,9 @@ module.exports = BaseController.extend({
                 }else{
                     fs.readFile('queries/prev_changes.sql', function(err, template) {
                         var sql = _(template.toString()).template()({clan_id: id, where: players_where.join(' OR ')});
+                        var sql_start = new Date();
                         self.MemberChanges.query(sql, function(err, prev) {
+                            console.log('prev_changes query took', (new Date()).getTime() - sql_start.getTime(), 'ms');
                             ret.prev = prev;
                             finish();
                         });
@@ -110,7 +116,9 @@ module.exports = BaseController.extend({
                 }else{
                     fs.readFile('queries/next_changes.sql', function(err, template) {
                         var sql = _(template.toString()).template()({clan_id: id, where: players_where_next.join(' OR ')});
+                        var sql_start = new Date();
                         self.MemberChanges.query(sql, function(err, next) {
+                            console.log('next_changes query took', (new Date()).getTime() - sql_start.getTime(), 'ms');
                             ret.next = next;
                             finish();
                         });
